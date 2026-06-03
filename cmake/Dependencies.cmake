@@ -12,4 +12,14 @@ FetchContent_Declare(
     GIT_TAG v3.11.3
 )
 
-FetchContent_MakeAvailable(CLI11 nlohmann_json)
+FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG v3.6.0
+)
+
+FetchContent_MakeAvailable(
+    nlohmann_json
+    CLI11
+    Catch2
+)

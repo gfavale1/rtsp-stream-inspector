@@ -15,6 +15,7 @@ include(cmake/Dependencies.cmake)
 add_library(rtsi_core
     src/app/AnalyzerConfig.cpp
     src/report/JsonReportWriter.cpp
+    src/rtsp/RtspUrl.cpp
 )
 
 target_include_directories(rtsi_core
@@ -36,3 +37,6 @@ target_link_libraries(rtsp-inspector
         rtsi_core
         CLI11::CLI11
 )
+
+enable_testing()
+add_subdirectory(tests)

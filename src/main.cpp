@@ -1,5 +1,6 @@
 #include "rtsi/app/AnalyzerConfig.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
+#include "rtsi/rtsp/RtspUrl.hpp"
 
 #include <CLI/CLI.hpp>
 
@@ -28,7 +29,14 @@ int main(int argc, char** argv) {
     CLI11_PARSE(app, argc, argv);
 
     try {
-        if (*analyze_cmd) {
+        if (*analyze_cmd) 
+        {
+            const auto parsed_url = rtsi::RtspUrl::parse(config.url);
+
+            std::cout << "Parsed RTSP source: "
+                    << parsed_url.host << ":"
+                    << parsed_url.port
+                    << parsed_url.path << '\n';
             rtsi::JsonReportWriter writer;
             writer.write_dummy_report(config);
 
