@@ -16,6 +16,7 @@ add_library(rtsi_core
     src/app/AnalyzerConfig.cpp
     src/report/JsonReportWriter.cpp
     src/rtsp/RtspUrl.cpp
+    src/rtsp/RtspRequest.cpp
 )
 
 target_include_directories(rtsi_core

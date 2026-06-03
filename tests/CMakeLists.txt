@@ -1,5 +1,6 @@
 add_executable(rtsi_tests
     test_rtsp_url.cpp
+    test_rtsp_request.cpp
 )
 
 target_link_libraries(rtsi_tests
