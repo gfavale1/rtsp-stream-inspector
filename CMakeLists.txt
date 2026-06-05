@@ -17,6 +17,7 @@ add_library(rtsi_core
     src/report/JsonReportWriter.cpp
 
     src/net/TcpSocket.cpp
+    src/net/UdpSocket.cpp
 
     src/rtsp/RtspUrl.cpp
     src/rtsp/RtspRequest.cpp
