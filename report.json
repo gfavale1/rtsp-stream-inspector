@@ -1,0 +1,54 @@
+{
+  "h264": {
+    "fu_a_ends": 30,
+    "fu_a_packets": 491,
+    "fu_a_starts": 31,
+    "idr_slices": 461,
+    "nal_units_seen": 943,
+    "non_idr_slices": 450,
+    "pps": 16,
+    "sei": 0,
+    "sps": 16,
+    "stap_a_packets": 0,
+    "unknown_nal_units": 0
+  },
+  "interleaved": {
+    "rtcp_frames_received": 57,
+    "rtp_frames_received": 943,
+    "total_payload_bytes": 853493
+  },
+  "rtp": {
+    "first_sequence_number": 5197,
+    "last_sequence_number": 6139,
+    "last_timestamp": 2743200,
+    "loss_rate": 0.0,
+    "out_of_order_packets": 0,
+    "packets_lost": 0,
+    "packets_received": 943,
+    "payload_type": 96,
+    "ssrc": 1613635049,
+    "total_payload_bytes": 839669,
+    "total_rtp_bytes": 850985
+  },
+  "source": {
+    "host": "192.168.0.242",
+    "path": "/stream2",
+    "port": 554,
+    "transport": "rtp_interleaved_tcp"
+  },
+  "stream_metrics": {
+    "average_h264_payload_size": 890.423117709438,
+    "average_rtp_packet_size": 902.423117709438,
+    "capture_duration_seconds": 30.53536822,
+    "h264_payload_bitrate_mbps": 0.21998595044287958,
+    "rtp_bitrate_mbps": 0.2229506436913044,
+    "rtp_packets_per_second": 30.882221337758608
+  },
+  "teardown_success": true,
+  "video": {
+    "clock_rate": 90000,
+    "codec": "H264",
+    "control": "track1",
+    "payload_type": 96
+  }
+}

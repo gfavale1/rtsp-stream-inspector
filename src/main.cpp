@@ -24,6 +24,62 @@
 
 namespace {
 
+bool starts_with_case_insensitive(const std::string& value,
+                                  const std::string& prefix) {
+  if (value.size() < prefix.size()) {
+    return false;
+  }
+
+  for (std::size_t i = 0; i < prefix.size(); ++i) {
+    const auto left = static_cast<unsigned char>(value[i]);
+    const auto right = static_cast<unsigned char>(prefix[i]);
+
+    if (std::tolower(left) != std::tolower(right)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+std::string sanitize_rtsp_message_for_log(const std::string& message) {
+  std::string sanitized;
+  std::size_t offset = 0;
+
+  while (offset < message.size()) {
+    const auto line_end = message.find_first_of("\r\n", offset);
+
+    std::string line;
+    std::string line_ending;
+
+    if (line_end == std::string::npos) {
+      line = message.substr(offset);
+      offset = message.size();
+    } else {
+      line = message.substr(offset, line_end - offset);
+
+      if (message[line_end] == '\r' && line_end + 1 < message.size() &&
+          message[line_end + 1] == '\n') {
+        line_ending = "\r\n";
+        offset = line_end + 2;
+      } else {
+        line_ending = message.substr(line_end, 1);
+        offset = line_end + 1;
+      }
+    }
+
+    if (starts_with_case_insensitive(line, "Authorization:")) {
+      sanitized += "Authorization: <redacted>";
+    } else {
+      sanitized += line;
+    }
+
+    sanitized += line_ending;
+  }
+
+  return sanitized;
+}
+
 void print_response_summary(const rtsi::RtspResponse &response) {
   std::cout << "Status: " << response.status_code() << " "
             << response.reason_phrase() << '\n';
@@ -179,7 +235,8 @@ int main(int argc, char **argv) {
       const auto options_exchange = client.options();
 
       std::cout << "\n--- RTSP OPTIONS REQUEST ---\n";
-      std::cout << options_exchange.serialized_request;
+      std::cout << sanitize_rtsp_message_for_log(
+          options_exchange.serialized_request);
 
       std::cout << "\n--- RTSP OPTIONS RESPONSE ---\n";
       print_response_summary(options_exchange.response);
@@ -192,7 +249,8 @@ int main(int argc, char **argv) {
       const auto describe_result = client.describe_with_basic_auth_retry();
 
       std::cout << "\n--- RTSP DESCRIBE REQUEST ---\n";
-      std::cout << describe_result.initial_exchange.serialized_request;
+      std::cout << sanitize_rtsp_message_for_log(
+          describe_result.initial_exchange.serialized_request);
 
       std::cout << "\n--- RTSP DESCRIBE RESPONSE ---\n";
       print_response_summary(describe_result.initial_exchange.response);
@@ -203,8 +261,8 @@ int main(int argc, char **argv) {
                   << "Retrying with Basic authentication...\n";
 
         std::cout << "\n--- RTSP DESCRIBE AUTHENTICATED REQUEST ---\n";
-        std::cout << describe_result.authenticated_exchange
-                         ->serialized_request;
+        std::cout << sanitize_rtsp_message_for_log(
+            describe_result.authenticated_exchange->serialized_request);
 
         std::cout << "\n--- RTSP DESCRIBE AUTHENTICATED RESPONSE ---\n";
         print_response_summary(
@@ -259,7 +317,8 @@ int main(int argc, char **argv) {
         const auto& setup_exchange = setup_result.exchange;
 
         std::cout << "\n--- RTSP SETUP REQUEST ---\n";
-        std::cout << setup_exchange.serialized_request;
+        std::cout << sanitize_rtsp_message_for_log(
+            setup_exchange.serialized_request);
 
         std::cout << "\n--- RTSP SETUP RESPONSE ---\n";
         print_response_summary(setup_exchange.response);
@@ -289,7 +348,8 @@ int main(int argc, char **argv) {
         const auto play_exchange = client.play(session_id);
 
         std::cout << "\n--- RTSP PLAY REQUEST ---\n";
-        std::cout << play_exchange.serialized_request;
+        std::cout << sanitize_rtsp_message_for_log(
+            play_exchange.serialized_request);
 
         std::cout << "\n--- RTSP PLAY RESPONSE ---\n";
         print_response_summary(play_exchange.response);
@@ -395,7 +455,8 @@ int main(int argc, char **argv) {
           const auto teardown_exchange = client.teardown(session_id);
 
           std::cout << "\n--- RTSP TEARDOWN REQUEST ---\n";
-          std::cout << teardown_exchange.serialized_request;
+          std::cout << sanitize_rtsp_message_for_log(
+              teardown_exchange.serialized_request);
 
           std::cout << "\n--- RTSP TEARDOWN RESPONSE ---\n";
           print_response_summary(teardown_exchange.response);
