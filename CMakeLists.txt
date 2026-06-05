@@ -35,6 +35,7 @@ add_library(rtsi_core
     src/metrics/StreamMetrics.cpp
     src/metrics/MetricsCollector.cpp
     src/rtsp/RtspClient.cpp
+    src/rtsp/InterleavedFrameReader.cpp
 )
 
 target_include_directories(rtsi_core

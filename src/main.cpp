@@ -4,6 +4,7 @@
 //#include "rtsi/net/UdpSocket.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
 #include "rtsi/rtp/RtpParser.hpp"
+#include "rtsi/rtsp/InterleavedFrameReader.hpp"
 #include "rtsi/rtsp/RtspClient.hpp"
 #include "rtsi/rtsp/RtspUrl.hpp"
 #include "rtsi/rtsp/SdpParser.hpp"
@@ -92,68 +93,6 @@ void print_h264_nal_stats(const rtsi::H264AnalysisSnapshot &stats) {
   std::cout << "FU-A starts: " << stats.fu_a_start_count << '\n';
   std::cout << "FU-A ends: " << stats.fu_a_end_count << '\n';
   std::cout << "Unknown NAL units: " << stats.unknown_count << '\n';
-}
-
-struct InterleavedFrame {
-  std::uint8_t channel = 0;
-  std::vector<std::uint8_t> payload;
-};
-
-std::string read_bytes(rtsi::TcpSocket &socket, std::string &pending,
-                       std::size_t byte_count) {
-  std::string result;
-  result.reserve(byte_count);
-
-  if (!pending.empty()) {
-    const std::size_t take = std::min(byte_count, pending.size());
-
-    result += pending.substr(0, take);
-    pending.erase(0, take);
-  }
-
-  if (result.size() < byte_count) {
-    result += socket.receive_exact(byte_count - result.size());
-  }
-
-  return result;
-}
-
-InterleavedFrame read_interleaved_frame(rtsi::TcpSocket &socket,
-                                        std::string &pending) {
-  std::string marker;
-
-  do {
-    marker = read_bytes(socket, pending, 1);
-  } while (!marker.empty() &&
-           static_cast<unsigned char>(marker[0]) != 0x24);
-
-  if (marker.empty()) {
-    throw std::runtime_error("Failed to read RTSP interleaved marker");
-  }
-
-  const auto header = read_bytes(socket, pending, 3);
-
-  if (header.size() != 3) {
-    throw std::runtime_error("Incomplete RTSP interleaved header");
-  }
-
-  InterleavedFrame frame;
-
-  frame.channel = static_cast<std::uint8_t>(header[0]);
-
-  const auto length = static_cast<std::uint16_t>(
-      (static_cast<unsigned char>(header[1]) << 8) |
-      static_cast<unsigned char>(header[2]));
-
-  const auto payload = read_bytes(socket, pending, length);
-
-  if (payload.size() != length) {
-    throw std::runtime_error("Incomplete RTSP interleaved payload");
-  }
-
-  frame.payload.assign(payload.begin(), payload.end());
-
-  return frame;
 }
 
 } // namespace
@@ -358,7 +297,8 @@ int main(int argc, char **argv) {
           return 1;
         }
 
-        std::string pending_tcp_data = play_exchange.response.body();
+        rtsi::InterleavedFrameReader interleaved_reader(
+            client.socket(), play_exchange.response.body());
 
         std::cout << "\nReceiving RTP interleaved frames over TCP...\n";
 
@@ -372,15 +312,14 @@ int main(int argc, char **argv) {
 
         for (int i = 0; i < probe_frame_count; ++i) {
           try {
-            const auto frame =
-                read_interleaved_frame(client.socket(), pending_tcp_data);
+            const auto frame = interleaved_reader.read_frame();
             ++interleaved_frames_received;
 
             const bool should_log_packet = i < packet_log_limit;
 
             total_payload_bytes += frame.payload.size();
 
-            if (frame.channel == 0) {
+            if (frame.is_rtp()) {
               ++rtp_frames_received;
 
               const auto rtp_packet = rtsi::RtpParser::parse(frame.payload);
@@ -390,7 +329,7 @@ int main(int argc, char **argv) {
               const auto nal_info =
                   rtsi::NalUnitParser::parse_rtp_payload(rtp_packet.payload);
               metrics_collector.update_h264_nal(nal_info);
-            } else if (frame.channel == 1) {
+            } else if (frame.is_rtcp()) {
               ++rtcp_frames_received;
             }
 
@@ -399,9 +338,9 @@ int main(int argc, char **argv) {
                         << " channel=" << static_cast<int>(frame.channel)
                         << " payload_size=" << frame.payload.size() << " bytes";
 
-              if (frame.channel == 0) {
+              if (frame.is_rtp()) {
                 std::cout << " type=RTP";
-              } else if (frame.channel == 1) {
+              } else if (frame.is_rtcp()) {
                 std::cout << " type=RTCP";
               } else {
                 std::cout << " type=unknown";
