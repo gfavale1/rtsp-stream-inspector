@@ -33,6 +33,7 @@ add_library(rtsi_core
     src/h264/NalUnit.cpp
     src/h264/H264Analyzer.cpp
     src/metrics/StreamMetrics.cpp
+    src/metrics/MetricsCollector.cpp
 )
 
 target_include_directories(rtsi_core

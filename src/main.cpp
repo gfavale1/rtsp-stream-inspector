@@ -1,12 +1,10 @@
 #include "rtsi/app/AnalyzerConfig.hpp"
-#include "rtsi/h264/H264Analyzer.hpp"
 #include "rtsi/h264/NalUnit.hpp"
-#include "rtsi/metrics/StreamMetrics.hpp"
+#include "rtsi/metrics/MetricsCollector.hpp"
 #include "rtsi/net/TcpSocket.hpp"
 //#include "rtsi/net/UdpSocket.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
 #include "rtsi/rtp/RtpParser.hpp"
-#include "rtsi/rtp/RtpStats.hpp"
 #include "rtsi/rtsp/RtspAuth.hpp"
 #include "rtsi/rtsp/RtspRequest.hpp"
 #include "rtsi/rtsp/RtspResponse.hpp"
@@ -16,7 +14,6 @@
 #include <CLI/CLI.hpp>
 
 #include <algorithm>
-#include <chrono>
 #include <cctype>
 #include <cstdint>
 #include <exception>
@@ -598,15 +595,13 @@ int main(int argc, char **argv) {
 
         std::cout << "\nReceiving RTP interleaved frames over TCP...\n";
 
-        rtsi::RtpStats rtp_stats;
-        rtsi::H264Analyzer h264_analyzer;
+        rtsi::MetricsCollector metrics_collector;
+        metrics_collector.start_capture();
 
         std::size_t rtp_frames_received = 0;
         std::size_t rtcp_frames_received = 0;
         std::size_t interleaved_frames_received = 0;
         std::size_t total_payload_bytes = 0;
-
-        const auto capture_start = std::chrono::steady_clock::now();
 
         for (int i = 0; i < probe_frame_count; ++i) {
           try {
@@ -621,11 +616,12 @@ int main(int argc, char **argv) {
               ++rtp_frames_received;
 
               const auto rtp_packet = rtsi::RtpParser::parse(frame.payload);
-              rtp_stats.update(rtp_packet, frame.payload.size());
+              metrics_collector.update_rtp_packet(rtp_packet,
+                                                  frame.payload.size());
 
               const auto nal_info =
                   rtsi::NalUnitParser::parse_rtp_payload(rtp_packet.payload);
-              h264_analyzer.update(nal_info);
+              metrics_collector.update_h264_nal(nal_info);
             } else if (frame.channel == 1) {
               ++rtcp_frames_received;
             }
@@ -664,23 +660,21 @@ int main(int argc, char **argv) {
                     << " captured frames.\n";
         }
 
-        const auto capture_end = std::chrono::steady_clock::now();
-        const double capture_seconds =
-            std::chrono::duration<double>(capture_end - capture_start).count();
+        metrics_collector.stop_capture();
+        const auto metrics = metrics_collector.snapshot();
 
         std::cout << "\n--- RTP INTERLEAVED RECEIVE SUMMARY ---\n";
         std::cout << "RTP frames received: " << rtp_frames_received << '\n';
         std::cout << "RTCP frames received: " << rtcp_frames_received << '\n';
         std::cout << "Total payload bytes: " << total_payload_bytes << '\n';
 
-        const auto stream_stats = rtp_stats.snapshot();
-        print_rtp_parser_stats(stream_stats);
+        const auto stats = metrics.rtp;
+        print_rtp_parser_stats(stats);
 
-        const auto h264_stats = h264_analyzer.snapshot();
+        const auto h264_stats = metrics.h264;
         print_h264_nal_stats(h264_stats);
 
-        const auto stream_metrics =
-            rtsi::StreamMetrics::from_rtp_stats(stream_stats, capture_seconds);
+        const auto stream_metrics = metrics.stream;
 
         std::cout << "\n--- STREAM METRICS ---\n";
         std::cout << std::fixed << std::setprecision(3);
