@@ -3,6 +3,9 @@
 namespace rtsi {
 namespace {
 
+constexpr double kJitterWarningThresholdMs = 50.0;
+constexpr double kLargeInterarrivalGapThresholdMs = 500.0;
+
 ReportFinding make_finding(AnomalySeverity severity, std::string code,
                            std::string message) {
   ReportFinding finding;
@@ -79,6 +82,33 @@ AnomalyDetector::analyze(const AnalysisReport& report) const {
     findings.push_back(make_finding(
         AnomalySeverity::Warning, "incomplete_h264_fragmentation",
         "FU-A fragmentation start/end counters are not balanced. The capture may have started or stopped in the middle of a fragmented frame."));
+  }
+
+  if (report.rtp_quality.packets_observed < 2) {
+    findings.push_back(make_finding(
+        AnomalySeverity::Warning, "insufficient_jitter_samples",
+        "Not enough RTP packets were observed to estimate jitter reliably."));
+  } else {
+    if (report.rtp_quality.jitter_ms <= kJitterWarningThresholdMs) {
+      findings.push_back(make_finding(
+          AnomalySeverity::Ok, "rtp_jitter_within_basic_threshold",
+          "RTP jitter is within the basic threshold."));
+    } else {
+      findings.push_back(make_finding(
+          AnomalySeverity::Warning, "high_rtp_jitter",
+          "RTP jitter is above the basic threshold."));
+    }
+
+    if (report.rtp_quality.max_interarrival_gap_ms <=
+        kLargeInterarrivalGapThresholdMs) {
+      findings.push_back(make_finding(
+          AnomalySeverity::Ok, "no_large_interarrival_gap",
+          "No large RTP inter-arrival gap detected."));
+    } else {
+      findings.push_back(make_finding(
+          AnomalySeverity::Warning, "large_interarrival_gap",
+          "A large RTP inter-arrival gap was detected."));
+    }
   }
 
   if (report.teardown_success) {

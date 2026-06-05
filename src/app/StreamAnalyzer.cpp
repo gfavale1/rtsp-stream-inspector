@@ -1,9 +1,12 @@
 #include "rtsi/app/StreamAnalyzer.hpp"
 
 #include "rtsi/h264/NalUnit.hpp"
+#include "rtsi/rtp/JitterEstimator.hpp"
 #include "rtsi/rtp/RtpParser.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdint>
 #include <exception>
 
 namespace rtsi {
@@ -21,6 +24,27 @@ InterleavedFrameType classify_frame(const InterleavedFrame& frame) noexcept {
   return InterleavedFrameType::Unknown;
 }
 
+std::uint32_t sanitize_clock_rate(int clock_rate) noexcept {
+  if (clock_rate <= 0) {
+    return 90000;
+  }
+
+  return static_cast<std::uint32_t>(clock_rate);
+}
+
+RtpQualityReport make_rtp_quality_report(
+    const JitterSnapshot& snapshot) noexcept {
+  RtpQualityReport report;
+  report.packets_observed = snapshot.packets_observed;
+  report.jitter_timestamp_units = snapshot.jitter_timestamp_units;
+  report.jitter_seconds = snapshot.jitter_seconds;
+  report.jitter_ms = snapshot.jitter_ms;
+  report.average_interarrival_gap_ms =
+      snapshot.average_interarrival_gap_ms;
+  report.max_interarrival_gap_ms = snapshot.max_interarrival_gap_ms;
+  return report;
+}
+
 } // namespace
 
 StreamAnalyzerResult StreamAnalyzer::analyze(
@@ -35,9 +59,12 @@ StreamAnalyzerResult StreamAnalyzer::analyze(
   MetricsCollector metrics_collector;
   metrics_collector.start_capture();
 
+  JitterEstimator jitter_estimator(sanitize_clock_rate(config.rtp_clock_rate));
+
   for (int i = 0; i < frame_count; ++i) {
     try {
       const auto frame = reader.read_frame();
+      const auto arrival_time = std::chrono::steady_clock::now();
       ++result.interleaved_frames_received;
 
       const auto frame_type = classify_frame(frame);
@@ -50,6 +77,7 @@ StreamAnalyzerResult StreamAnalyzer::analyze(
 
         const auto rtp_packet = RtpParser::parse(frame.payload);
         metrics_collector.update_rtp_packet(rtp_packet, frame.payload.size());
+        jitter_estimator.update(rtp_packet.timestamp, arrival_time);
 
         const auto nal_info =
             NalUnitParser::parse_rtp_payload(rtp_packet.payload);
@@ -84,6 +112,8 @@ StreamAnalyzerResult StreamAnalyzer::analyze(
   result.report.rtp = result.metrics.rtp;
   result.report.h264 = result.metrics.h264;
   result.report.stream = result.metrics.stream;
+  result.report.rtp_quality =
+      make_rtp_quality_report(jitter_estimator.snapshot());
 
   return result;
 }

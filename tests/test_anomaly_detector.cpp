@@ -33,6 +33,9 @@ rtsi::AnalysisReport healthy_report() {
   report.h264.pps_count = 1;
   report.h264.fu_a_start_count = 2;
   report.h264.fu_a_end_count = 2;
+  report.rtp_quality.packets_observed = 3;
+  report.rtp_quality.jitter_ms = 10.0;
+  report.rtp_quality.max_interarrival_gap_ms = 40.0;
   report.teardown_success = true;
   return report;
 }
@@ -58,6 +61,12 @@ TEST_CASE("AnomalyDetector reports OK findings for a healthy capture", "[metrics
   REQUIRE(find_by_code(findings, "h264_fragmentation_balanced") != nullptr);
   REQUIRE(find_by_code(findings, "h264_fragmentation_balanced")->severity == "ok");
 
+  REQUIRE(find_by_code(findings, "rtp_jitter_within_basic_threshold") != nullptr);
+  REQUIRE(find_by_code(findings, "rtp_jitter_within_basic_threshold")->severity == "ok");
+
+  REQUIRE(find_by_code(findings, "no_large_interarrival_gap") != nullptr);
+  REQUIRE(find_by_code(findings, "no_large_interarrival_gap")->severity == "ok");
+
   REQUIRE(find_by_code(findings, "rtsp_teardown_success") != nullptr);
   REQUIRE(find_by_code(findings, "rtsp_teardown_success")->severity == "ok");
 
@@ -74,6 +83,9 @@ TEST_CASE("AnomalyDetector reports warnings for problematic captures", "[metrics
   report.h264.pps_count = 1;
   report.h264.fu_a_start_count = 3;
   report.h264.fu_a_end_count = 1;
+  report.rtp_quality.packets_observed = 3;
+  report.rtp_quality.jitter_ms = 100.0;
+  report.rtp_quality.max_interarrival_gap_ms = 800.0;
   report.teardown_success = false;
 
   const rtsi::AnomalyDetector detector;
@@ -93,6 +105,12 @@ TEST_CASE("AnomalyDetector reports warnings for problematic captures", "[metrics
 
   REQUIRE(find_by_code(findings, "incomplete_h264_fragmentation") != nullptr);
   REQUIRE(find_by_code(findings, "incomplete_h264_fragmentation")->severity == "warning");
+
+  REQUIRE(find_by_code(findings, "high_rtp_jitter") != nullptr);
+  REQUIRE(find_by_code(findings, "high_rtp_jitter")->severity == "warning");
+
+  REQUIRE(find_by_code(findings, "large_interarrival_gap") != nullptr);
+  REQUIRE(find_by_code(findings, "large_interarrival_gap")->severity == "warning");
 
   REQUIRE(find_by_code(findings, "rtsp_teardown_failed") != nullptr);
   REQUIRE(find_by_code(findings, "rtsp_teardown_failed")->severity == "warning");

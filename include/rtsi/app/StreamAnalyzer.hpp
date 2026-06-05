@@ -15,6 +15,7 @@ namespace rtsi {
 struct StreamAnalyzerConfig {
   int frame_count = 300;
   int packet_log_limit = 20;
+  int rtp_clock_rate = 90000;
 };
 
 enum class InterleavedFrameType {

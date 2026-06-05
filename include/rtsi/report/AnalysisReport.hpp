@@ -31,6 +31,15 @@ struct InterleavedCaptureReport {
   std::size_t total_interleaved_payload_bytes = 0;
 };
 
+struct RtpQualityReport {
+  std::size_t packets_observed = 0;
+  double jitter_timestamp_units = 0.0;
+  double jitter_seconds = 0.0;
+  double jitter_ms = 0.0;
+  double average_interarrival_gap_ms = 0.0;
+  double max_interarrival_gap_ms = 0.0;
+};
+
 struct ReportFinding {
   std::string severity;
   std::string code;
@@ -45,9 +54,9 @@ struct AnalysisReport {
   RtpStatsSnapshot rtp;
   H264AnalysisSnapshot h264;
   StreamMetricsSnapshot stream;
+  RtpQualityReport rtp_quality;
 
   bool teardown_success = false;
-
   std::vector<ReportFinding> findings;
 };
 

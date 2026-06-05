@@ -92,17 +92,29 @@ void JsonReportWriter::write_report(const AnalysisReport& report,
        report.stream.average_h264_payload_size},
   };
 
+  json_report["rtp_quality"] = {
+      {"packets_observed", report.rtp_quality.packets_observed},
+      {"jitter_timestamp_units",
+       report.rtp_quality.jitter_timestamp_units},
+      {"jitter_seconds", report.rtp_quality.jitter_seconds},
+      {"jitter_ms", report.rtp_quality.jitter_ms},
+      {"average_interarrival_gap_ms",
+       report.rtp_quality.average_interarrival_gap_ms},
+      {"max_interarrival_gap_ms",
+       report.rtp_quality.max_interarrival_gap_ms},
+  };
+
   json_report["teardown_success"] = report.teardown_success;
 
-  json_report["findings"] = nlohmann::json::array();
-
+  nlohmann::json findings_json = nlohmann::json::array();
   for (const auto& finding : report.findings) {
-    json_report["findings"].push_back({
+    findings_json.push_back({
         {"severity", finding.severity},
         {"code", finding.code},
         {"message", finding.message},
     });
   }
+  json_report["findings"] = findings_json;
 
   std::ofstream file(output_path);
   if (!file) {

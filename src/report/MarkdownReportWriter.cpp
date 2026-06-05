@@ -128,6 +128,15 @@ void MarkdownReportWriter::write_report(
   file << "- Average H264 payload size: "
        << report.stream.average_h264_payload_size << " bytes\n\n";
 
+  file << "## RTP Quality Metrics\n\n";
+  file << "- Packets observed for jitter: "
+       << report.rtp_quality.packets_observed << '\n';
+  file << "- RTP jitter: " << report.rtp_quality.jitter_ms << " ms\n";
+  file << "- Average inter-arrival gap: "
+       << report.rtp_quality.average_interarrival_gap_ms << " ms\n";
+  file << "- Max inter-arrival gap: "
+       << report.rtp_quality.max_interarrival_gap_ms << " ms\n\n";
+
   file << "## Findings\n\n";
 
   if (report.findings.empty()) {

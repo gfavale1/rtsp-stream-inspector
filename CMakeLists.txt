@@ -40,6 +40,7 @@ add_library(rtsi_core
     src/app/StreamAnalyzer.cpp
     src/metrics/AnomalyDetector.cpp
     src/report/MarkdownReportWriter.cpp
+    src/rtp/JitterEstimator.cpp
 )
 
 target_include_directories(rtsi_core

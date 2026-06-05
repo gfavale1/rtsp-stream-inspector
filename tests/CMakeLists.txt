@@ -11,6 +11,7 @@ add_executable(rtsi_tests
     test_rtp_parser.cpp
     test_rtp_stats.cpp
     test_stream_metrics_tests.cpp
+    test_jitter_estimator.cpp
 )
 
 target_link_libraries(rtsi_tests

@@ -428,6 +428,7 @@ int main(int argc, char **argv) {
         rtsi::StreamAnalyzerConfig stream_config;
         stream_config.frame_count = selected_frame_count;
         stream_config.packet_log_limit = selected_packet_log_limit;
+        stream_config.rtp_clock_rate = video_track->clock_rate;
 
         const auto analysis_result = stream_analyzer.analyze(
             interleaved_reader,
@@ -507,6 +508,17 @@ int main(int argc, char **argv) {
                   << stream_metrics.average_rtp_packet_size << " bytes\n";
         std::cout << "Average H264 payload size: "
                   << stream_metrics.average_h264_payload_size << " bytes\n";
+
+        const auto rtp_quality = report.rtp_quality;
+
+        std::cout << "\n--- RTP QUALITY METRICS ---\n";
+        std::cout << "Packets observed for jitter: "
+                  << rtp_quality.packets_observed << '\n';
+        std::cout << "RTP jitter: " << rtp_quality.jitter_ms << " ms\n";
+        std::cout << "Average inter-arrival gap: "
+                  << rtp_quality.average_interarrival_gap_ms << " ms\n";
+        std::cout << "Max inter-arrival gap: "
+                  << rtp_quality.max_interarrival_gap_ms << " ms\n";
 
         bool teardown_success = false;
 

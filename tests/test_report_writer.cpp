@@ -62,6 +62,13 @@ rtsi::AnalysisReport sample_report() {
   report.stream.average_rtp_packet_size = 100.0;
   report.stream.average_h264_payload_size = 80.0;
 
+  report.rtp_quality.packets_observed = 10;
+  report.rtp_quality.jitter_timestamp_units = 90.0;
+  report.rtp_quality.jitter_seconds = 0.001;
+  report.rtp_quality.jitter_ms = 1.0;
+  report.rtp_quality.average_interarrival_gap_ms = 33.333;
+  report.rtp_quality.max_interarrival_gap_ms = 40.0;
+
   report.teardown_success = true;
   report.findings.push_back({"ok", "no_packet_loss", "No RTP packet loss detected."});
   report.findings.push_back({"warning", "unencrypted_rtsp", "RTSP traffic is not encrypted."});
@@ -88,10 +95,13 @@ TEST_CASE("JsonReportWriter writes parseable analysis reports", "[report][json]"
   REQUIRE(parsed.contains("rtp"));
   REQUIRE(parsed.contains("h264"));
   REQUIRE(parsed.contains("stream_metrics"));
+  REQUIRE(parsed.contains("rtp_quality"));
   REQUIRE(parsed.contains("findings"));
   REQUIRE(parsed["source"]["host"] == "192.0.2.10");
   REQUIRE(parsed["video"]["codec"] == "H264");
   REQUIRE(parsed["rtp"]["packets_received"] == 10);
+  REQUIRE(parsed["rtp_quality"]["packets_observed"] == 10);
+  REQUIRE(parsed["rtp_quality"]["jitter_ms"] == 1.0);
   REQUIRE(parsed["findings"].is_array());
   REQUIRE(parsed["findings"].size() == 2);
 
@@ -116,6 +126,8 @@ TEST_CASE("MarkdownReportWriter writes human-readable analysis reports", "[repor
   REQUIRE(content.find("## RTP Statistics") != std::string::npos);
   REQUIRE(content.find("## H.264 NAL Statistics") != std::string::npos);
   REQUIRE(content.find("## Stream Metrics") != std::string::npos);
+  REQUIRE(content.find("## RTP Quality Metrics") != std::string::npos);
+  REQUIRE(content.find("Packets observed for jitter: 10") != std::string::npos);
   REQUIRE(content.find("## Findings") != std::string::npos);
   REQUIRE(content.find("[OK] No RTP packet loss detected.") != std::string::npos);
   REQUIRE(content.find("[WARN] RTSP traffic is not encrypted.") != std::string::npos);
