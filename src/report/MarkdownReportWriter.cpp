@@ -64,6 +64,19 @@ void MarkdownReportWriter::write_report(
 
   file << "# RTSP Stream Inspection Report\n\n";
 
+  file << "## Metadata\n\n";
+  file << "- Tool: " << report.metadata.tool << '\n';
+  file << "- Version: " << report.metadata.version << '\n';
+  file << "- Schema version: " << report.metadata.schema_version << '\n';
+  file << "- Command: " << report.metadata.command << '\n';
+  file << "- Generated at UTC: " << report.metadata.generated_at_utc << "\n\n";
+
+  file << "## Configuration\n\n";
+  file << "- Frames requested: " << report.configuration.frames_requested << '\n';
+  file << "- Packet log limit: " << report.configuration.packet_log_limit << '\n';
+  file << "- Timeout: " << report.configuration.timeout_ms << " ms\n";
+  file << "- Transport: " << report.configuration.transport << "\n\n";
+
   file << "## Source\n\n";
   file << "- Host: " << report.source.host << '\n';
   file << "- Port: " << report.source.port << '\n';

@@ -25,6 +25,21 @@ void JsonReportWriter::write_report(const AnalysisReport& report,
                                     const std::string& output_path) const {
   nlohmann::json json_report;
 
+  json_report["metadata"] = {
+      {"tool", report.metadata.tool},
+      {"version", report.metadata.version},
+      {"schema_version", report.metadata.schema_version},
+      {"command", report.metadata.command},
+      {"generated_at_utc", report.metadata.generated_at_utc},
+  };
+
+  json_report["configuration"] = {
+      {"frames_requested", report.configuration.frames_requested},
+      {"packet_log_limit", report.configuration.packet_log_limit},
+      {"timeout_ms", report.configuration.timeout_ms},
+      {"transport", report.configuration.transport},
+  };
+
   json_report["source"] = {
       {"host", report.source.host},
       {"port", report.source.port},

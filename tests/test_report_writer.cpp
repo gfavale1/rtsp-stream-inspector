@@ -21,6 +21,17 @@ std::string read_file(const std::filesystem::path& path) {
 rtsi::AnalysisReport sample_report() {
   rtsi::AnalysisReport report;
 
+  report.metadata.tool = "rtsp-stream-inspector";
+  report.metadata.version = "0.1.0";
+  report.metadata.schema_version = "1.0";
+  report.metadata.command = "analyze";
+  report.metadata.generated_at_utc = "2026-01-01T00:00:00Z";
+
+  report.configuration.frames_requested = 1000;
+  report.configuration.packet_log_limit = 20;
+  report.configuration.timeout_ms = 5000;
+  report.configuration.transport = "rtp_interleaved_tcp";
+
   report.source.host = "192.0.2.10";
   report.source.port = 554;
   report.source.path = "/stream2";
@@ -89,6 +100,8 @@ TEST_CASE("JsonReportWriter writes parseable analysis reports", "[report][json]"
   const auto content = read_file(path);
   const auto parsed = nlohmann::json::parse(content);
 
+  REQUIRE(parsed.contains("metadata"));
+  REQUIRE(parsed.contains("configuration"));
   REQUIRE(parsed.contains("source"));
   REQUIRE(parsed.contains("video"));
   REQUIRE(parsed.contains("interleaved"));
@@ -97,6 +110,15 @@ TEST_CASE("JsonReportWriter writes parseable analysis reports", "[report][json]"
   REQUIRE(parsed.contains("stream_metrics"));
   REQUIRE(parsed.contains("rtp_quality"));
   REQUIRE(parsed.contains("findings"));
+  REQUIRE(parsed["metadata"]["tool"] == "rtsp-stream-inspector");
+  REQUIRE(parsed["metadata"]["version"] == "0.1.0");
+  REQUIRE(parsed["metadata"]["schema_version"] == "1.0");
+  REQUIRE(parsed["metadata"]["command"] == "analyze");
+  REQUIRE(parsed["metadata"]["generated_at_utc"] == "2026-01-01T00:00:00Z");
+  REQUIRE(parsed["configuration"]["frames_requested"] == 1000);
+  REQUIRE(parsed["configuration"]["packet_log_limit"] == 20);
+  REQUIRE(parsed["configuration"]["timeout_ms"] == 5000);
+  REQUIRE(parsed["configuration"]["transport"] == "rtp_interleaved_tcp");
   REQUIRE(parsed["source"]["host"] == "192.0.2.10");
   REQUIRE(parsed["video"]["codec"] == "H264");
   REQUIRE(parsed["rtp"]["packets_received"] == 10);
@@ -121,6 +143,12 @@ TEST_CASE("MarkdownReportWriter writes human-readable analysis reports", "[repor
   const auto content = read_file(path);
 
   REQUIRE(content.find("# RTSP Stream Inspection Report") != std::string::npos);
+  REQUIRE(content.find("## Metadata") != std::string::npos);
+  REQUIRE(content.find("## Configuration") != std::string::npos);
+  REQUIRE(content.find("Tool: rtsp-stream-inspector") != std::string::npos);
+  REQUIRE(content.find("Command: analyze") != std::string::npos);
+  REQUIRE(content.find("Frames requested: 1000") != std::string::npos);
+  REQUIRE(content.find("Timeout: 5000 ms") != std::string::npos);
   REQUIRE(content.find("## Source") != std::string::npos);
   REQUIRE(content.find("## Video Track") != std::string::npos);
   REQUIRE(content.find("## RTP Statistics") != std::string::npos);

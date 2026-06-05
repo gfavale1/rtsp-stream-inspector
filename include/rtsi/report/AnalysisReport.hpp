@@ -11,6 +11,21 @@
 
 namespace rtsi {
 
+struct ReportMetadata {
+  std::string tool = "rtsp-stream-inspector";
+  std::string version = "0.1.0";
+  std::string schema_version = "1.0";
+  std::string command;
+  std::string generated_at_utc;
+};
+
+struct AnalysisConfigurationReport {
+  std::size_t frames_requested = 0;
+  std::size_t packet_log_limit = 0;
+  int timeout_ms = 0;
+  std::string transport = "rtp_interleaved_tcp";
+};
+
 struct SourceReport {
   std::string host;
   std::uint16_t port = 554;
@@ -47,6 +62,9 @@ struct ReportFinding {
 };
 
 struct AnalysisReport {
+  ReportMetadata metadata;
+  AnalysisConfigurationReport configuration;
+
   SourceReport source;
   VideoTrackReport video;
   InterleavedCaptureReport interleaved;

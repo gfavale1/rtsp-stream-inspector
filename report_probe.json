@@ -1,4 +1,10 @@
 {
+  "configuration": {
+    "frames_requested": 1000,
+    "packet_log_limit": 20,
+    "timeout_ms": 3000,
+    "transport": "rtp_interleaved_tcp"
+  },
   "findings": [
     {
       "code": "no_packet_loss",
@@ -52,12 +58,12 @@
     }
   ],
   "h264": {
-    "fu_a_ends": 217,
-    "fu_a_packets": 713,
-    "fu_a_starts": 218,
-    "idr_slices": 299,
+    "fu_a_ends": 191,
+    "fu_a_packets": 687,
+    "fu_a_starts": 192,
+    "idr_slices": 321,
     "nal_units_seen": 946,
-    "non_idr_slices": 617,
+    "non_idr_slices": 595,
     "pps": 15,
     "sei": 0,
     "sps": 15,
@@ -67,27 +73,34 @@
   "interleaved": {
     "rtcp_frames_received": 54,
     "rtp_frames_received": 946,
-    "total_payload_bytes": 1046296
+    "total_payload_bytes": 1055539
+  },
+  "metadata": {
+    "command": "probe",
+    "generated_at_utc": "2026-06-05T20:14:16Z",
+    "schema_version": "1.0",
+    "tool": "rtsp-stream-inspector",
+    "version": "0.1.0"
   },
   "rtp": {
-    "first_sequence_number": 58686,
-    "last_sequence_number": 59631,
-    "last_timestamp": 2577690,
+    "first_sequence_number": 818,
+    "last_sequence_number": 1763,
+    "last_timestamp": 2566800,
     "loss_rate": 0.0,
     "out_of_order_packets": 0,
     "packets_lost": 0,
     "packets_received": 946,
     "payload_type": 96,
-    "ssrc": 1612688084,
-    "total_payload_bytes": 1032568,
-    "total_rtp_bytes": 1043920
+    "ssrc": 1944203851,
+    "total_payload_bytes": 1041811,
+    "total_rtp_bytes": 1053163
   },
   "rtp_quality": {
-    "average_interarrival_gap_ms": 30.279066329100583,
-    "jitter_ms": 1.609666963766128,
-    "jitter_seconds": 0.0016096669637661281,
-    "jitter_timestamp_units": 144.87002673895154,
-    "max_interarrival_gap_ms": 524.133657,
+    "average_interarrival_gap_ms": 30.14557968783068,
+    "jitter_ms": 1.3459730136521895,
+    "jitter_seconds": 0.0013459730136521895,
+    "jitter_timestamp_units": 121.13757122869706,
+    "max_interarrival_gap_ms": 528.068112,
     "packets_observed": 946
   },
   "source": {
@@ -97,12 +110,12 @@
     "transport": "rtp_interleaved_tcp"
   },
   "stream_metrics": {
-    "average_h264_payload_size": 1091.509513742072,
-    "average_rtp_packet_size": 1103.509513742072,
-    "capture_duration_seconds": 28.676556736,
-    "h264_payload_bitrate_mbps": 0.2880591305311726,
-    "rtp_bitrate_mbps": 0.29122603794045687,
-    "rtp_packets_per_second": 32.98861884671146
+    "average_h264_payload_size": 1101.2801268498943,
+    "average_rtp_packet_size": 1113.2801268498943,
+    "capture_duration_seconds": 28.563208823,
+    "h264_payload_bitrate_mbps": 0.2917910257088765,
+    "rtp_bitrate_mbps": 0.29497050041575434,
+    "rtp_packets_per_second": 33.11952819664473
   },
   "teardown_success": true,
   "video": {

@@ -14,7 +14,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstdint>
+#include <ctime>
 #include <exception>
 #include <iomanip>
 #include <iostream>
@@ -152,6 +154,24 @@ void print_h264_nal_stats(const rtsi::H264AnalysisSnapshot &stats) {
   std::cout << "Unknown NAL units: " << stats.unknown_count << '\n';
 }
 
+
+std::string current_utc_timestamp() {
+  const auto now = std::chrono::system_clock::now();
+  const auto now_time = std::chrono::system_clock::to_time_t(now);
+
+  std::tm utc_time{};
+
+#if defined(_WIN32)
+  gmtime_s(&utc_time, &now_time);
+#else
+  gmtime_r(&now_time, &utc_time);
+#endif
+
+  std::ostringstream stream;
+  stream << std::put_time(&utc_time, "%Y-%m-%dT%H:%M:%SZ");
+  return stream.str();
+}
+
 std::string finding_label(const std::string& severity) {
   if (severity == "ok") {
     return "[OK]";
@@ -280,6 +300,8 @@ int main(int argc, char **argv) {
       const auto& selected_markdown_output_path =
           using_analyze_command ? analyze_markdown_output_path
                                 : probe_markdown_output_path;
+      const std::string selected_command_name =
+          using_analyze_command ? "analyze" : "probe";
 
       const auto parsed_url = rtsi::RtspUrl::parse(selected_url);
 
@@ -469,6 +491,15 @@ int main(int argc, char **argv) {
         const auto metrics = analysis_result.metrics;
 
         auto report = analysis_result.report;
+        report.metadata.command = selected_command_name;
+        report.metadata.generated_at_utc = current_utc_timestamp();
+        report.configuration.frames_requested =
+            static_cast<std::size_t>(std::max(0, selected_frame_count));
+        report.configuration.packet_log_limit =
+            static_cast<std::size_t>(std::max(0, selected_packet_log_limit));
+        report.configuration.timeout_ms = selected_timeout_ms;
+        report.configuration.transport = "rtp_interleaved_tcp";
+
         report.source.host = parsed_url.host;
         report.source.port = parsed_url.port;
         report.source.path = parsed_url.path;
