@@ -29,6 +29,9 @@ add_library(rtsi_core
     src/rtp/RtpPacket.cpp
     src/rtp/RtpParser.cpp
     src/rtp/RtpStats.cpp
+
+    src/h264/NalUnit.cpp
+    src/h264/H264Analyzer.cpp
 )
 
 target_include_directories(rtsi_core

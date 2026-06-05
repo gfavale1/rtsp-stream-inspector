@@ -1,6 +1,8 @@
 #include "rtsi/app/AnalyzerConfig.hpp"
 #include "rtsi/net/TcpSocket.hpp"
 // #include "rtsi/net/UdpSocket.hpp"
+#include "rtsi/h264/H264Analyzer.hpp"
+#include "rtsi/h264/NalUnit.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
 #include "rtsi/rtp/RtpParser.hpp"
 #include "rtsi/rtp/RtpStats.hpp"
@@ -454,8 +456,9 @@ int main(int argc, char **argv) {
         std::size_t total_payload_bytes = 0;
 
         rtsi::RtpStats rtp_stats;
+        rtsi::H264Analyzer h264_analyzer;
 
-        for (int i = 0; i < 20; ++i) {
+        for (int i = 0; i < 300; ++i) {
           try {
             const auto frame = read_interleaved_frame(socket, pending_tcp_data);
 
@@ -478,12 +481,25 @@ int main(int argc, char **argv) {
                 const auto rtp_packet = rtsi::RtpParser::parse(frame.payload);
                 rtp_stats.update(rtp_packet, frame.payload.size());
 
+                const auto nal_info =
+                    rtsi::NalUnitParser::parse_rtp_payload(rtp_packet.payload);
+
+                h264_analyzer.update(nal_info);
+
                 std::cout << " seq=" << rtp_packet.sequence_number
                           << " ts=" << rtp_packet.timestamp
                           << " pt=" << static_cast<int>(rtp_packet.payload_type)
                           << " marker=" << rtp_packet.marker
                           << " ssrc=" << rtp_packet.ssrc
-                          << " rtp_payload=" << rtp_packet.payload_size();
+                          << " rtp_payload=" << rtp_packet.payload_size()
+                          << " nal=" << rtsi::to_string(nal_info.type);
+
+                if (nal_info.is_fragment) {
+                  std::cout << " original_nal="
+                            << rtsi::to_string(nal_info.original_fragment_type)
+                            << " fu_start=" << nal_info.fragment_start
+                            << " fu_end=" << nal_info.fragment_end;
+                }
 
               } catch (const std::exception &ex) {
                 std::cout << " rtp_parse_error=\"" << ex.what() << "\"";
@@ -544,6 +560,21 @@ int main(int argc, char **argv) {
         if (stats.ssrc.has_value()) {
           std::cout << "SSRC: " << stats.ssrc.value() << '\n';
         }
+
+        const auto h264_stats = h264_analyzer.snapshot();
+
+        std::cout << "\n--- H264 NAL STATS ---\n";
+        std::cout << "NAL units seen: " << h264_stats.nal_units_seen << '\n';
+        std::cout << "SPS: " << h264_stats.sps_count << '\n';
+        std::cout << "PPS: " << h264_stats.pps_count << '\n';
+        std::cout << "SEI: " << h264_stats.sei_count << '\n';
+        std::cout << "IDR slices: " << h264_stats.idr_count << '\n';
+        std::cout << "Non-IDR slices: " << h264_stats.non_idr_count << '\n';
+        std::cout << "STAP-A packets: " << h264_stats.stap_a_count << '\n';
+        std::cout << "FU-A packets: " << h264_stats.fu_a_count << '\n';
+        std::cout << "FU-A starts: " << h264_stats.fu_a_start_count << '\n';
+        std::cout << "FU-A ends: " << h264_stats.fu_a_end_count << '\n';
+        std::cout << "Unknown NAL units: " << h264_stats.unknown_count << '\n';
       }
 
       return 0;
