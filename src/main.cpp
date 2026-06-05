@@ -182,22 +182,41 @@ void print_findings(const std::vector<rtsi::ReportFinding>& findings) {
 int main(int argc, char **argv) {
   CLI::App app{"Low-level RTSP/RTP stream inspection tool"};
 
-  rtsi::AnalyzerConfig analyze_config;
+  std::string analyze_url;
+  int analyze_timeout_ms = 3000;
+  int analyze_frame_count = 300;
+  int analyze_packet_log_limit = 20;
+  std::string analyze_output_path;
+  std::string analyze_markdown_output_path;
 
-  auto analyze_cmd = app.add_subcommand("analyze", "Analyze an RTSP stream");
+  auto analyze_cmd = app.add_subcommand(
+      "analyze", "Analyze an RTSP stream and generate RTP/H264 metrics");
 
-  analyze_cmd->add_option("--url", analyze_config.url, "RTSP stream URL")
+  analyze_cmd->add_option("--url", analyze_url, "RTSP stream URL")
       ->required();
 
   analyze_cmd
-      ->add_option("--duration", analyze_config.duration_seconds,
-                   "Analysis duration in seconds")
-      ->default_val(10);
+      ->add_option("--timeout-ms", analyze_timeout_ms,
+                   "TCP timeout in milliseconds")
+      ->default_val(3000);
 
   analyze_cmd
-      ->add_option("--output", analyze_config.output_path,
-                   "Output JSON report path")
-      ->default_val("report.json");
+      ->add_option("--frames", analyze_frame_count,
+                   "Number of interleaved RTP/RTCP frames to read")
+      ->default_val(300);
+
+  analyze_cmd
+      ->add_option("--packet-log-limit", analyze_packet_log_limit,
+                   "Maximum number of interleaved frames to print in detail")
+      ->default_val(20);
+
+  analyze_cmd
+      ->add_option("--output", analyze_output_path,
+                   "Optional JSON report output path");
+
+  analyze_cmd
+      ->add_option("--markdown", analyze_markdown_output_path,
+                   "Optional Markdown report output path");
 
   std::string probe_url;
   int probe_timeout_ms = 3000;
@@ -240,27 +259,35 @@ int main(int argc, char **argv) {
     packet_log_limit = 0;
   }
 
+  if (analyze_packet_log_limit < 0) {
+    analyze_packet_log_limit = 0;
+  }
+
   try {
-    if (*analyze_cmd) {
-      const auto parsed_url = rtsi::RtspUrl::parse(analyze_config.url);
+    if (*analyze_cmd || *probe_cmd) {
+      const bool using_analyze_command = static_cast<bool>(*analyze_cmd);
 
-      std::cout << "Parsed RTSP source: " << parsed_url.host << ":"
-                << parsed_url.port << parsed_url.path << '\n';
+      const auto& selected_url =
+          using_analyze_command ? analyze_url : probe_url;
+      const int selected_timeout_ms =
+          using_analyze_command ? analyze_timeout_ms : probe_timeout_ms;
+      const int selected_frame_count =
+          using_analyze_command ? analyze_frame_count : probe_frame_count;
+      const int selected_packet_log_limit =
+          using_analyze_command ? analyze_packet_log_limit : packet_log_limit;
+      const auto& selected_output_path =
+          using_analyze_command ? analyze_output_path : probe_output_path;
+      const auto& selected_markdown_output_path =
+          using_analyze_command ? analyze_markdown_output_path
+                                : probe_markdown_output_path;
 
-      std::cout << "The analyze command is not implemented yet. "
-                << "Use the probe command with --output to generate a JSON report.\n";
-
-      return 0;
-    }
-
-    if (*probe_cmd) {
-      const auto parsed_url = rtsi::RtspUrl::parse(probe_url);
+      const auto parsed_url = rtsi::RtspUrl::parse(selected_url);
 
       std::cout << "Connecting to " << parsed_url.host << ":" << parsed_url.port
                 << "...\n";
 
       rtsi::RtspClient client(parsed_url);
-      client.connect(probe_timeout_ms);
+      client.connect(selected_timeout_ms);
 
       const auto request_uri = client.request_uri();
 
@@ -399,8 +426,8 @@ int main(int argc, char **argv) {
         rtsi::StreamAnalyzer stream_analyzer;
 
         rtsi::StreamAnalyzerConfig stream_config;
-        stream_config.frame_count = probe_frame_count;
-        stream_config.packet_log_limit = packet_log_limit;
+        stream_config.frame_count = selected_frame_count;
+        stream_config.packet_log_limit = selected_packet_log_limit;
 
         const auto analysis_result = stream_analyzer.analyze(
             interleaved_reader,
@@ -427,12 +454,12 @@ int main(int argc, char **argv) {
         }
 
         const auto packet_log_limit_count =
-            static_cast<std::size_t>(packet_log_limit);
+            static_cast<std::size_t>(selected_packet_log_limit);
 
         if (analysis_result.interleaved_frames_received >
             packet_log_limit_count) {
           std::cout << "Packet detail log limited to first "
-                    << packet_log_limit
+                    << selected_packet_log_limit
                     << " frames out of "
                     << analysis_result.interleaved_frames_received
                     << " captured frames.\n";
@@ -511,17 +538,17 @@ int main(int argc, char **argv) {
         report.findings = anomaly_detector.analyze(report);
         print_findings(report.findings);
 
-        if (!probe_output_path.empty()) {
+        if (!selected_output_path.empty()) {
           rtsi::JsonReportWriter writer;
-          writer.write_report(report, probe_output_path);
-          std::cout << "\nJSON report written to: " << probe_output_path << '\n';
+          writer.write_report(report, selected_output_path);
+          std::cout << "\nJSON report written to: " << selected_output_path << '\n';
         }
 
-        if (!probe_markdown_output_path.empty()) {
+        if (!selected_markdown_output_path.empty()) {
           rtsi::MarkdownReportWriter writer;
-          writer.write_report(report, probe_markdown_output_path);
+          writer.write_report(report, selected_markdown_output_path);
           std::cout << "Markdown report written to: "
-                    << probe_markdown_output_path << '\n';
+                    << selected_markdown_output_path << '\n';
         }
       }
 
