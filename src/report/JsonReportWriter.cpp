@@ -94,6 +94,16 @@ void JsonReportWriter::write_report(const AnalysisReport& report,
 
   json_report["teardown_success"] = report.teardown_success;
 
+  json_report["findings"] = nlohmann::json::array();
+
+  for (const auto& finding : report.findings) {
+    json_report["findings"].push_back({
+        {"severity", finding.severity},
+        {"code", finding.code},
+        {"message", finding.message},
+    });
+  }
+
   std::ofstream file(output_path);
   if (!file) {
     throw std::runtime_error("Unable to open output file: " + output_path);

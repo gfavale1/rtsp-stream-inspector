@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace rtsi {
 
@@ -30,6 +31,12 @@ struct InterleavedCaptureReport {
   std::size_t total_interleaved_payload_bytes = 0;
 };
 
+struct ReportFinding {
+  std::string severity;
+  std::string code;
+  std::string message;
+};
+
 struct AnalysisReport {
   SourceReport source;
   VideoTrackReport video;
@@ -40,6 +47,8 @@ struct AnalysisReport {
   StreamMetricsSnapshot stream;
 
   bool teardown_success = false;
+
+  std::vector<ReportFinding> findings;
 };
 
 } // namespace rtsi

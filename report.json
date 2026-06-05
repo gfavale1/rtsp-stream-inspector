@@ -1,11 +1,53 @@
 {
+  "findings": [
+    {
+      "code": "no_packet_loss",
+      "message": "No RTP packet loss detected.",
+      "severity": "ok"
+    },
+    {
+      "code": "no_out_of_order_packets",
+      "message": "No out-of-order RTP packets detected.",
+      "severity": "ok"
+    },
+    {
+      "code": "no_unknown_h264_nal_units",
+      "message": "No unknown H.264 NAL units detected.",
+      "severity": "ok"
+    },
+    {
+      "code": "h264_parameter_sets_observed",
+      "message": "SPS and PPS NAL units were observed.",
+      "severity": "ok"
+    },
+    {
+      "code": "h264_fragmentation_balanced",
+      "message": "Observed FU-A fragmentation start/end counters are balanced.",
+      "severity": "ok"
+    },
+    {
+      "code": "rtsp_teardown_success",
+      "message": "RTSP TEARDOWN completed successfully.",
+      "severity": "ok"
+    },
+    {
+      "code": "unencrypted_rtsp",
+      "message": "RTSP traffic is not encrypted; credentials and media metadata may be exposed on the network.",
+      "severity": "warning"
+    },
+    {
+      "code": "basic_auth_may_be_in_use",
+      "message": "If Basic authentication is used over plain RTSP, credentials are only Base64-encoded and not encrypted.",
+      "severity": "warning"
+    }
+  ],
   "h264": {
-    "fu_a_ends": 30,
-    "fu_a_packets": 491,
-    "fu_a_starts": 31,
-    "idr_slices": 461,
-    "nal_units_seen": 943,
-    "non_idr_slices": 450,
+    "fu_a_ends": 32,
+    "fu_a_packets": 480,
+    "fu_a_starts": 32,
+    "idr_slices": 448,
+    "nal_units_seen": 942,
+    "non_idr_slices": 462,
     "pps": 16,
     "sei": 0,
     "sps": 16,
@@ -13,22 +55,22 @@
     "unknown_nal_units": 0
   },
   "interleaved": {
-    "rtcp_frames_received": 57,
-    "rtp_frames_received": 943,
-    "total_payload_bytes": 853493
+    "rtcp_frames_received": 58,
+    "rtp_frames_received": 942,
+    "total_payload_bytes": 846222
   },
   "rtp": {
-    "first_sequence_number": 5197,
-    "last_sequence_number": 6139,
-    "last_timestamp": 2743200,
+    "first_sequence_number": 10636,
+    "last_sequence_number": 11577,
+    "last_timestamp": 2772000,
     "loss_rate": 0.0,
     "out_of_order_packets": 0,
     "packets_lost": 0,
-    "packets_received": 943,
+    "packets_received": 942,
     "payload_type": 96,
-    "ssrc": 1613635049,
-    "total_payload_bytes": 839669,
-    "total_rtp_bytes": 850985
+    "ssrc": 532060666,
+    "total_payload_bytes": 832366,
+    "total_rtp_bytes": 843670
   },
   "source": {
     "host": "192.168.0.242",
@@ -37,12 +79,12 @@
     "transport": "rtp_interleaved_tcp"
   },
   "stream_metrics": {
-    "average_h264_payload_size": 890.423117709438,
-    "average_rtp_packet_size": 902.423117709438,
-    "capture_duration_seconds": 30.53536822,
-    "h264_payload_bitrate_mbps": 0.21998595044287958,
-    "rtp_bitrate_mbps": 0.2229506436913044,
-    "rtp_packets_per_second": 30.882221337758608
+    "average_h264_payload_size": 883.6157112526539,
+    "average_rtp_packet_size": 895.6157112526539,
+    "capture_duration_seconds": 30.809161195,
+    "h264_payload_bitrate_mbps": 0.21613467363988714,
+    "rtp_bitrate_mbps": 0.219069904476833,
+    "rtp_packets_per_second": 30.575321218186122
   },
   "teardown_success": true,
   "video": {

@@ -1,5 +1,6 @@
 #include "rtsi/app/AnalyzerConfig.hpp"
 #include "rtsi/app/StreamAnalyzer.hpp"
+#include "rtsi/metrics/AnomalyDetector.hpp"
 //#include "rtsi/net/UdpSocket.hpp"
 #include "rtsi/report/AnalysisReport.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
@@ -148,6 +149,31 @@ void print_h264_nal_stats(const rtsi::H264AnalysisSnapshot &stats) {
   std::cout << "FU-A starts: " << stats.fu_a_start_count << '\n';
   std::cout << "FU-A ends: " << stats.fu_a_end_count << '\n';
   std::cout << "Unknown NAL units: " << stats.unknown_count << '\n';
+}
+
+std::string finding_label(const std::string& severity) {
+  if (severity == "ok") {
+    return "[OK]";
+  }
+
+  if (severity == "warning") {
+    return "[WARN]";
+  }
+
+  if (severity == "critical") {
+    return "[CRITICAL]";
+  }
+
+  return "[INFO]";
+}
+
+void print_findings(const std::vector<rtsi::ReportFinding>& findings) {
+  std::cout << "\n--- FINDINGS ---\n";
+
+  for (const auto& finding : findings) {
+    std::cout << finding_label(finding.severity) << ' '
+              << finding.message << '\n';
+  }
 }
 
 } // namespace
@@ -474,6 +500,10 @@ int main(int argc, char **argv) {
         }
 
         report.teardown_success = teardown_success;
+
+        const rtsi::AnomalyDetector anomaly_detector;
+        report.findings = anomaly_detector.analyze(report);
+        print_findings(report.findings);
 
         if (!probe_output_path.empty()) {
           rtsi::JsonReportWriter writer;

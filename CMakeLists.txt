@@ -38,6 +38,7 @@ add_library(rtsi_core
     src/rtsp/InterleavedFrameReader.cpp
     src/app/StreamAnalyzer.cpp
     src/app/StreamAnalyzer.cpp
+    src/metrics/AnomalyDetector.cpp
 )
 
 target_include_directories(rtsi_core
