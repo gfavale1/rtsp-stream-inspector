@@ -11,10 +11,12 @@
 #include <CLI/CLI.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cstdint>
 #include <exception>
 #include <iostream>
+#include <iomanip>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -193,6 +195,71 @@ InterleavedFrame read_interleaved_frame(rtsi::TcpSocket &socket,
   frame.payload.assign(payload.begin(), payload.end());
 
   return frame;
+}
+
+std::optional<std::size_t> rtp_payload_size(const std::vector<std::uint8_t> &packet) {
+  if (packet.size() < 12) {
+    return std::nullopt;
+  }
+
+  const auto first_byte = packet[0];
+  const auto version = static_cast<std::uint8_t>((first_byte >> 6) & 0x03);
+
+  if (version != 2) {
+    return std::nullopt;
+  }
+
+  const bool has_extension = (first_byte & 0x10) != 0;
+  const auto csrc_count = static_cast<std::size_t>(first_byte & 0x0F);
+
+  std::size_t offset = 12 + (csrc_count * 4);
+
+  if (packet.size() < offset) {
+    return std::nullopt;
+  }
+
+  if (has_extension) {
+    if (packet.size() < offset + 4) {
+      return std::nullopt;
+    }
+
+    const auto extension_length_words = static_cast<std::uint16_t>(
+        (static_cast<unsigned char>(packet[offset + 2]) << 8) |
+        static_cast<unsigned char>(packet[offset + 3]));
+
+    offset += 4 + (static_cast<std::size_t>(extension_length_words) * 4);
+
+    if (packet.size() < offset) {
+      return std::nullopt;
+    }
+  }
+
+  return packet.size() - offset;
+}
+
+double bitrate_mbps(std::size_t byte_count, double duration_seconds) {
+  if (duration_seconds <= 0.0) {
+    return 0.0;
+  }
+
+  return (static_cast<double>(byte_count) * 8.0) /
+         (duration_seconds * 1000000.0);
+}
+
+double safe_rate(std::size_t count, double duration_seconds) {
+  if (duration_seconds <= 0.0) {
+    return 0.0;
+  }
+
+  return static_cast<double>(count) / duration_seconds;
+}
+
+double safe_average(std::size_t total, std::size_t count) {
+  if (count == 0) {
+    return 0.0;
+  }
+
+  return static_cast<double>(total) / static_cast<double>(count);
 }
 
 } // namespace
@@ -458,6 +525,10 @@ int main(int argc, char **argv) {
         std::size_t rtp_frames_received = 0;
         std::size_t rtcp_frames_received = 0;
         std::size_t total_payload_bytes = 0;
+        std::size_t total_rtp_packet_bytes = 0;
+        std::size_t total_h264_payload_bytes = 0;
+
+        const auto capture_start = std::chrono::steady_clock::now();
 
         for (int i = 0; i < probe_frame_count; ++i) {
           try {
@@ -467,6 +538,13 @@ int main(int argc, char **argv) {
 
             if (frame.channel == 0) {
               ++rtp_frames_received;
+              total_rtp_packet_bytes += frame.payload.size();
+
+              const auto h264_payload_bytes = rtp_payload_size(frame.payload);
+
+              if (h264_payload_bytes.has_value()) {
+                total_h264_payload_bytes += h264_payload_bytes.value();
+              }
             } else if (frame.channel == 1) {
               ++rtcp_frames_received;
             }
@@ -492,10 +570,35 @@ int main(int argc, char **argv) {
           }
         }
 
+        const auto capture_end = std::chrono::steady_clock::now();
+        const double capture_duration_seconds =
+            std::chrono::duration<double>(capture_end - capture_start).count();
+
         std::cout << "\n--- RTP INTERLEAVED RECEIVE SUMMARY ---\n";
         std::cout << "RTP frames received: " << rtp_frames_received << '\n';
         std::cout << "RTCP frames received: " << rtcp_frames_received << '\n';
         std::cout << "Total payload bytes: " << total_payload_bytes << '\n';
+
+        std::cout << "\n--- STREAM METRICS ---\n";
+        std::cout << std::fixed << std::setprecision(3);
+        std::cout << "Capture duration: " << capture_duration_seconds << " s\n";
+        std::cout << "RTP bitrate: "
+                  << bitrate_mbps(total_rtp_packet_bytes,
+                                  capture_duration_seconds)
+                  << " Mbps\n";
+        std::cout << "H264 payload bitrate: "
+                  << bitrate_mbps(total_h264_payload_bytes,
+                                  capture_duration_seconds)
+                  << " Mbps\n";
+        std::cout << "RTP packets/sec: "
+                  << safe_rate(rtp_frames_received, capture_duration_seconds)
+                  << " pps\n";
+        std::cout << "Average RTP packet size: "
+                  << safe_average(total_rtp_packet_bytes, rtp_frames_received)
+                  << " bytes\n";
+        std::cout << "Average H264 payload size: "
+                  << safe_average(total_h264_payload_bytes, rtp_frames_received)
+                  << " bytes\n";
       }
 
       return 0;
