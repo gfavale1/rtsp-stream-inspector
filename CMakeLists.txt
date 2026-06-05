@@ -15,8 +15,13 @@ include(cmake/Dependencies.cmake)
 add_library(rtsi_core
     src/app/AnalyzerConfig.cpp
     src/report/JsonReportWriter.cpp
+
+    src/net/TcpSocket.cpp
+
     src/rtsp/RtspUrl.cpp
     src/rtsp/RtspRequest.cpp
+    src/rtsp/RtspResponse.cpp
+    src/rtsp/RtspSession.cpp
 )
 
 target_include_directories(rtsi_core
