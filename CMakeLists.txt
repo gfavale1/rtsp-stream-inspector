@@ -25,6 +25,9 @@ add_library(rtsi_core
     src/rtsp/RtspSession.cpp
     src/rtsp/RtspAuth.cpp
     src/rtsp/SdpParser.cpp
+
+    src/rtp/RtpPacket.cpp
+    src/rtp/RtpParser.cpp
 )
 
 target_include_directories(rtsi_core

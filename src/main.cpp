@@ -1,7 +1,8 @@
 #include "rtsi/app/AnalyzerConfig.hpp"
 #include "rtsi/net/TcpSocket.hpp"
-//#include "rtsi/net/UdpSocket.hpp"
+// #include "rtsi/net/UdpSocket.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
+#include "rtsi/rtp/RtpParser.hpp"
 #include "rtsi/rtsp/RtspAuth.hpp"
 #include "rtsi/rtsp/RtspRequest.hpp"
 #include "rtsi/rtsp/RtspResponse.hpp"
@@ -132,7 +133,6 @@ void print_response_summary(const rtsi::RtspResponse &response) {
   }
 }
 
-
 struct InterleavedFrame {
   std::uint8_t channel = 0;
   std::vector<std::uint8_t> payload;
@@ -163,8 +163,7 @@ InterleavedFrame read_interleaved_frame(rtsi::TcpSocket &socket,
 
   do {
     marker = read_bytes(socket, pending, 1);
-  } while (!marker.empty() &&
-           static_cast<unsigned char>(marker[0]) != 0x24);
+  } while (!marker.empty() && static_cast<unsigned char>(marker[0]) != 0x24);
 
   if (marker.empty()) {
     throw std::runtime_error("Failed to read RTSP interleaved marker");
@@ -180,9 +179,9 @@ InterleavedFrame read_interleaved_frame(rtsi::TcpSocket &socket,
 
   frame.channel = static_cast<std::uint8_t>(header[0]);
 
-  const auto length = static_cast<std::uint16_t>(
-      (static_cast<unsigned char>(header[1]) << 8) |
-      static_cast<unsigned char>(header[2]));
+  const auto length =
+      static_cast<std::uint16_t>((static_cast<unsigned char>(header[1]) << 8) |
+                                 static_cast<unsigned char>(header[2]));
 
   const auto payload = read_bytes(socket, pending, length);
 
@@ -366,11 +365,11 @@ int main(int argc, char **argv) {
       }
 
       {
-        //rtsi::UdpSocket rtp_socket;
-        //rtp_socket.bind_to(5000, 3000);
+        // rtsi::UdpSocket rtp_socket;
+        // rtp_socket.bind_to(5000, 3000);
 
-        //std::cout << "\nListening for RTP packets on UDP port 5000...\n";
-        const std::string transport ="RTP/AVP/TCP;unicast;interleaved=0-1";
+        // std::cout << "\nListening for RTP packets on UDP port 5000...\n";
+        const std::string transport = "RTP/AVP/TCP;unicast;interleaved=0-1";
 
         auto setup_request =
             rtsi::RtspRequest::setup(video_setup_uri, 4, transport);
@@ -471,6 +470,21 @@ int main(int argc, char **argv) {
 
             if (frame.channel == 0) {
               std::cout << " type=RTP";
+
+              try {
+                const auto rtp_packet = rtsi::RtpParser::parse(frame.payload);
+
+                std::cout << " seq=" << rtp_packet.sequence_number
+                          << " ts=" << rtp_packet.timestamp
+                          << " pt=" << static_cast<int>(rtp_packet.payload_type)
+                          << " marker=" << rtp_packet.marker
+                          << " ssrc=" << rtp_packet.ssrc
+                          << " rtp_payload=" << rtp_packet.payload_size();
+
+              } catch (const std::exception &ex) {
+                std::cout << " rtp_parse_error=\"" << ex.what() << "\"";
+              }
+
             } else if (frame.channel == 1) {
               std::cout << " type=RTCP";
             } else {
