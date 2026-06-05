@@ -11,12 +11,10 @@
 #include <CLI/CLI.hpp>
 
 #include <algorithm>
-#include <chrono>
 #include <cctype>
 #include <cstdint>
 #include <exception>
 #include <iostream>
-#include <iomanip>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -197,70 +195,87 @@ InterleavedFrame read_interleaved_frame(rtsi::TcpSocket &socket,
   return frame;
 }
 
-std::optional<std::size_t> rtp_payload_size(const std::vector<std::uint8_t> &packet) {
-  if (packet.size() < 12) {
-    return std::nullopt;
-  }
 
-  const auto first_byte = packet[0];
-  const auto version = static_cast<std::uint8_t>((first_byte >> 6) & 0x03);
+std::string read_rtsp_response_skipping_interleaved(rtsi::TcpSocket& socket) {
+    std::string rolling_prefix;
 
-  if (version != 2) {
-    return std::nullopt;
-  }
+    while (true) {
+        const auto byte = socket.receive_exact(1);
 
-  const bool has_extension = (first_byte & 0x10) != 0;
-  const auto csrc_count = static_cast<std::size_t>(first_byte & 0x0F);
+        if (byte.empty()) {
+            throw std::runtime_error("Failed to read RTSP response prefix");
+        }
 
-  std::size_t offset = 12 + (csrc_count * 4);
+        const auto value = static_cast<unsigned char>(byte[0]);
 
-  if (packet.size() < offset) {
-    return std::nullopt;
-  }
+        if (value == 0x24) {
+            const auto header = socket.receive_exact(3);
 
-  if (has_extension) {
-    if (packet.size() < offset + 4) {
-      return std::nullopt;
+            if (header.size() != 3) {
+                throw std::runtime_error("Incomplete interleaved frame header before RTSP response");
+            }
+
+            const auto length = static_cast<std::uint16_t>(
+                (static_cast<unsigned char>(header[1]) << 8) |
+                static_cast<unsigned char>(header[2])
+            );
+
+            if (length > 0) {
+                static_cast<void>(socket.receive_exact(length));
+            }
+
+            rolling_prefix.clear();
+            continue;
+        }
+
+        rolling_prefix += byte;
+
+        if (rolling_prefix.size() > 5) {
+            rolling_prefix.erase(0, rolling_prefix.size() - 5);
+        }
+
+        if (rolling_prefix == "RTSP/") {
+            break;
+        }
     }
 
-    const auto extension_length_words = static_cast<std::uint16_t>(
-        (static_cast<unsigned char>(packet[offset + 2]) << 8) |
-        static_cast<unsigned char>(packet[offset + 3]));
+    std::string raw_response = "RTSP/";
+    raw_response += socket.receive_until("\r\n\r\n", 65536);
 
-    offset += 4 + (static_cast<std::size_t>(extension_length_words) * 4);
+    std::size_t header_end = raw_response.find("\r\n\r\n");
+    std::size_t separator_size = 4;
 
-    if (packet.size() < offset) {
-      return std::nullopt;
+    if (header_end == std::string::npos) {
+        header_end = raw_response.find("\n\n");
+        separator_size = 2;
     }
-  }
 
-  return packet.size() - offset;
+    if (header_end == std::string::npos) {
+        throw std::runtime_error("Invalid RTSP response: missing header separator");
+    }
+
+    const auto header_block = raw_response.substr(0, header_end);
+    const auto content_length = extract_content_length_from_headers(header_block);
+
+    if (!content_length.has_value()) {
+        return raw_response;
+    }
+
+    const std::size_t body_start = header_end + separator_size;
+
+    const std::size_t already_received_body_bytes =
+        raw_response.size() > body_start ? raw_response.size() - body_start : 0;
+
+    if (already_received_body_bytes < content_length.value()) {
+        const std::size_t missing =
+            content_length.value() - already_received_body_bytes;
+
+        raw_response += socket.receive_exact(missing);
+    }
+
+    return raw_response;
 }
 
-double bitrate_mbps(std::size_t byte_count, double duration_seconds) {
-  if (duration_seconds <= 0.0) {
-    return 0.0;
-  }
-
-  return (static_cast<double>(byte_count) * 8.0) /
-         (duration_seconds * 1000000.0);
-}
-
-double safe_rate(std::size_t count, double duration_seconds) {
-  if (duration_seconds <= 0.0) {
-    return 0.0;
-  }
-
-  return static_cast<double>(count) / duration_seconds;
-}
-
-double safe_average(std::size_t total, std::size_t count) {
-  if (count == 0) {
-    return 0.0;
-  }
-
-  return static_cast<double>(total) / static_cast<double>(count);
-}
 
 } // namespace
 
@@ -525,10 +540,6 @@ int main(int argc, char **argv) {
         std::size_t rtp_frames_received = 0;
         std::size_t rtcp_frames_received = 0;
         std::size_t total_payload_bytes = 0;
-        std::size_t total_rtp_packet_bytes = 0;
-        std::size_t total_h264_payload_bytes = 0;
-
-        const auto capture_start = std::chrono::steady_clock::now();
 
         for (int i = 0; i < probe_frame_count; ++i) {
           try {
@@ -538,13 +549,6 @@ int main(int argc, char **argv) {
 
             if (frame.channel == 0) {
               ++rtp_frames_received;
-              total_rtp_packet_bytes += frame.payload.size();
-
-              const auto h264_payload_bytes = rtp_payload_size(frame.payload);
-
-              if (h264_payload_bytes.has_value()) {
-                total_h264_payload_bytes += h264_payload_bytes.value();
-              }
             } else if (frame.channel == 1) {
               ++rtcp_frames_received;
             }
@@ -570,35 +574,53 @@ int main(int argc, char **argv) {
           }
         }
 
-        const auto capture_end = std::chrono::steady_clock::now();
-        const double capture_duration_seconds =
-            std::chrono::duration<double>(capture_end - capture_start).count();
-
         std::cout << "\n--- RTP INTERLEAVED RECEIVE SUMMARY ---\n";
         std::cout << "RTP frames received: " << rtp_frames_received << '\n';
         std::cout << "RTCP frames received: " << rtcp_frames_received << '\n';
         std::cout << "Total payload bytes: " << total_payload_bytes << '\n';
 
-        std::cout << "\n--- STREAM METRICS ---\n";
-        std::cout << std::fixed << std::setprecision(3);
-        std::cout << "Capture duration: " << capture_duration_seconds << " s\n";
-        std::cout << "RTP bitrate: "
-                  << bitrate_mbps(total_rtp_packet_bytes,
-                                  capture_duration_seconds)
-                  << " Mbps\n";
-        std::cout << "H264 payload bitrate: "
-                  << bitrate_mbps(total_h264_payload_bytes,
-                                  capture_duration_seconds)
-                  << " Mbps\n";
-        std::cout << "RTP packets/sec: "
-                  << safe_rate(rtp_frames_received, capture_duration_seconds)
-                  << " pps\n";
-        std::cout << "Average RTP packet size: "
-                  << safe_average(total_rtp_packet_bytes, rtp_frames_received)
-                  << " bytes\n";
-        std::cout << "Average H264 payload size: "
-                  << safe_average(total_h264_payload_bytes, rtp_frames_received)
-                  << " bytes\n";
+        auto teardown_request =
+            rtsi::RtspRequest::teardown(request_uri, 6, session_id);
+
+        if (parsed_url.has_credentials()) {
+            teardown_request.set_header(
+                "Authorization",
+                rtsi::make_basic_authorization_value(
+                    parsed_url.username,
+                    parsed_url.password
+                )
+            );
+        }
+
+        const auto serialized_teardown_request = teardown_request.serialize();
+
+        std::cout << "\n--- RTSP TEARDOWN REQUEST ---\n";
+        std::cout << serialized_teardown_request;
+
+        socket.send_all(serialized_teardown_request);
+
+        try {
+            const auto raw_teardown_response =
+                read_rtsp_response_skipping_interleaved(socket);
+
+            const auto teardown_response =
+                rtsi::RtspResponse::parse(raw_teardown_response);
+
+            std::cout << "\n--- RTSP TEARDOWN RESPONSE ---\n";
+            print_response_summary(teardown_response);
+
+            if (!teardown_response.is_success()) {
+                std::cout << "\nRaw response:\n"
+                          << raw_teardown_response
+                          << '\n';
+            }
+
+        } catch (const std::exception& ex) {
+            std::cout << "\nRTSP TEARDOWN response could not be read: "
+                      << ex.what()
+                      << '\n';
+        }
+
       }
 
       return 0;
