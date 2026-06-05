@@ -5,6 +5,12 @@ add_executable(rtsi_tests
     test_rtsp_session.cpp
     test_rtsp_auth.cpp
     test_sdp_parser.cpp
+    test_anomaly_detector.cpp
+    test_h264_nal.cpp
+    test_report_writer.cpp
+    test_rtp_parser.cpp
+    test_rtp_stats.cpp
+    test_stream_metrics_tests.cpp
 )
 
 target_link_libraries(rtsi_tests
