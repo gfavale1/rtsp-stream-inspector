@@ -4,6 +4,7 @@
 //#include "rtsi/net/UdpSocket.hpp"
 #include "rtsi/report/AnalysisReport.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
+#include "rtsi/report/MarkdownReportWriter.hpp"
 #include "rtsi/rtsp/InterleavedFrameReader.hpp"
 #include "rtsi/rtsp/RtspClient.hpp"
 #include "rtsi/rtsp/RtspUrl.hpp"
@@ -203,6 +204,7 @@ int main(int argc, char **argv) {
   int probe_frame_count = 300;
   int packet_log_limit = 20;
   std::string probe_output_path;
+  std::string probe_markdown_output_path;
 
   auto probe_cmd = app.add_subcommand(
       "probe", "Send RTSP OPTIONS, DESCRIBE and SETUP requests");
@@ -227,6 +229,10 @@ int main(int argc, char **argv) {
   probe_cmd
       ->add_option("--output", probe_output_path,
                    "Optional JSON report output path");
+
+  probe_cmd
+      ->add_option("--markdown", probe_markdown_output_path,
+                   "Optional Markdown report output path");
 
   CLI11_PARSE(app, argc, argv);
 
@@ -509,6 +515,13 @@ int main(int argc, char **argv) {
           rtsi::JsonReportWriter writer;
           writer.write_report(report, probe_output_path);
           std::cout << "\nJSON report written to: " << probe_output_path << '\n';
+        }
+
+        if (!probe_markdown_output_path.empty()) {
+          rtsi::MarkdownReportWriter writer;
+          writer.write_report(report, probe_markdown_output_path);
+          std::cout << "Markdown report written to: "
+                    << probe_markdown_output_path << '\n';
         }
       }
 

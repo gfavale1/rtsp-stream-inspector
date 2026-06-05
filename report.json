@@ -43,11 +43,11 @@
   ],
   "h264": {
     "fu_a_ends": 32,
-    "fu_a_packets": 480,
+    "fu_a_packets": 464,
     "fu_a_starts": 32,
-    "idr_slices": 448,
-    "nal_units_seen": 942,
-    "non_idr_slices": 462,
+    "idr_slices": 432,
+    "nal_units_seen": 940,
+    "non_idr_slices": 476,
     "pps": 16,
     "sei": 0,
     "sps": 16,
@@ -55,22 +55,22 @@
     "unknown_nal_units": 0
   },
   "interleaved": {
-    "rtcp_frames_received": 58,
-    "rtp_frames_received": 942,
-    "total_payload_bytes": 846222
+    "rtcp_frames_received": 60,
+    "rtp_frames_received": 940,
+    "total_payload_bytes": 906224
   },
   "rtp": {
-    "first_sequence_number": 10636,
-    "last_sequence_number": 11577,
-    "last_timestamp": 2772000,
+    "first_sequence_number": 57689,
+    "last_sequence_number": 58628,
+    "last_timestamp": 2869200,
     "loss_rate": 0.0,
     "out_of_order_packets": 0,
     "packets_lost": 0,
-    "packets_received": 942,
+    "packets_received": 940,
     "payload_type": 96,
-    "ssrc": 532060666,
-    "total_payload_bytes": 832366,
-    "total_rtp_bytes": 843670
+    "ssrc": 477236326,
+    "total_payload_bytes": 892304,
+    "total_rtp_bytes": 903584
   },
   "source": {
     "host": "192.168.0.242",
@@ -79,12 +79,12 @@
     "transport": "rtp_interleaved_tcp"
   },
   "stream_metrics": {
-    "average_h264_payload_size": 883.6157112526539,
-    "average_rtp_packet_size": 895.6157112526539,
-    "capture_duration_seconds": 30.809161195,
-    "h264_payload_bitrate_mbps": 0.21613467363988714,
-    "rtp_bitrate_mbps": 0.219069904476833,
-    "rtp_packets_per_second": 30.575321218186122
+    "average_h264_payload_size": 949.2595744680851,
+    "average_rtp_packet_size": 961.2595744680851,
+    "capture_duration_seconds": 31.914224429,
+    "h264_payload_bitrate_mbps": 0.22367555933815544,
+    "rtp_bitrate_mbps": 0.2265031386265307,
+    "rtp_packets_per_second": 29.453950920575572
   },
   "teardown_success": true,
   "video": {
