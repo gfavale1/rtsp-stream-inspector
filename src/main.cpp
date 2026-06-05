@@ -1,9 +1,7 @@
 #include "rtsi/app/AnalyzerConfig.hpp"
-#include "rtsi/h264/NalUnit.hpp"
-#include "rtsi/metrics/MetricsCollector.hpp"
+#include "rtsi/app/StreamAnalyzer.hpp"
 //#include "rtsi/net/UdpSocket.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
-#include "rtsi/rtp/RtpParser.hpp"
 #include "rtsi/rtsp/InterleavedFrameReader.hpp"
 #include "rtsi/rtsp/RtspClient.hpp"
 #include "rtsi/rtsp/RtspUrl.hpp"
@@ -302,78 +300,57 @@ int main(int argc, char **argv) {
 
         std::cout << "\nReceiving RTP interleaved frames over TCP...\n";
 
-        rtsi::MetricsCollector metrics_collector;
-        metrics_collector.start_capture();
+        rtsi::StreamAnalyzer stream_analyzer;
 
-        std::size_t rtp_frames_received = 0;
-        std::size_t rtcp_frames_received = 0;
-        std::size_t interleaved_frames_received = 0;
-        std::size_t total_payload_bytes = 0;
+        rtsi::StreamAnalyzerConfig stream_config;
+        stream_config.frame_count = probe_frame_count;
+        stream_config.packet_log_limit = packet_log_limit;
 
-        for (int i = 0; i < probe_frame_count; ++i) {
-          try {
-            const auto frame = interleaved_reader.read_frame();
-            ++interleaved_frames_received;
+        const auto analysis_result = stream_analyzer.analyze(
+            interleaved_reader,
+            stream_config,
+            [](const rtsi::StreamAnalyzerPacketLogEntry& entry) {
+              std::cout << "Interleaved frame " << entry.frame_index
+                        << " channel=" << static_cast<int>(entry.channel)
+                        << " payload_size=" << entry.payload_size << " bytes";
 
-            const bool should_log_packet = i < packet_log_limit;
-
-            total_payload_bytes += frame.payload.size();
-
-            if (frame.is_rtp()) {
-              ++rtp_frames_received;
-
-              const auto rtp_packet = rtsi::RtpParser::parse(frame.payload);
-              metrics_collector.update_rtp_packet(rtp_packet,
-                                                  frame.payload.size());
-
-              const auto nal_info =
-                  rtsi::NalUnitParser::parse_rtp_payload(rtp_packet.payload);
-              metrics_collector.update_h264_nal(nal_info);
-            } else if (frame.is_rtcp()) {
-              ++rtcp_frames_received;
-            }
-
-            if (should_log_packet) {
-              std::cout << "Interleaved frame " << (i + 1)
-                        << " channel=" << static_cast<int>(frame.channel)
-                        << " payload_size=" << frame.payload.size() << " bytes";
-
-              if (frame.is_rtp()) {
+              if (entry.type == rtsi::InterleavedFrameType::Rtp) {
                 std::cout << " type=RTP";
-              } else if (frame.is_rtcp()) {
+              } else if (entry.type == rtsi::InterleavedFrameType::Rtcp) {
                 std::cout << " type=RTCP";
               } else {
                 std::cout << " type=unknown";
               }
 
               std::cout << '\n';
-            }
+            });
 
-          } catch (const std::exception &ex) {
-            std::cout << "Interleaved RTP receive stopped: " << ex.what()
-                      << '\n';
-            break;
-          }
+        if (analysis_result.stop_reason.has_value()) {
+          std::cout << "Interleaved RTP receive stopped: "
+                    << analysis_result.stop_reason.value() << '\n';
         }
 
         const auto packet_log_limit_count =
             static_cast<std::size_t>(packet_log_limit);
 
-        if (interleaved_frames_received > packet_log_limit_count) {
+        if (analysis_result.interleaved_frames_received >
+            packet_log_limit_count) {
           std::cout << "Packet detail log limited to first "
                     << packet_log_limit
                     << " frames out of "
-                    << interleaved_frames_received
+                    << analysis_result.interleaved_frames_received
                     << " captured frames.\n";
         }
 
-        metrics_collector.stop_capture();
-        const auto metrics = metrics_collector.snapshot();
+        const auto metrics = analysis_result.metrics;
 
         std::cout << "\n--- RTP INTERLEAVED RECEIVE SUMMARY ---\n";
-        std::cout << "RTP frames received: " << rtp_frames_received << '\n';
-        std::cout << "RTCP frames received: " << rtcp_frames_received << '\n';
-        std::cout << "Total payload bytes: " << total_payload_bytes << '\n';
+        std::cout << "RTP frames received: "
+                  << analysis_result.rtp_frames_received << '\n';
+        std::cout << "RTCP frames received: "
+                  << analysis_result.rtcp_frames_received << '\n';
+        std::cout << "Total payload bytes: "
+                  << analysis_result.total_payload_bytes << '\n';
 
         const auto stats = metrics.rtp;
         print_rtp_parser_stats(stats);
