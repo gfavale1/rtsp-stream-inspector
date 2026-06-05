@@ -353,6 +353,7 @@ int main(int argc, char **argv) {
   std::string probe_url;
   int probe_timeout_ms = 3000;
   int probe_frame_count = 300;
+  int packet_log_limit = 20;
 
   auto probe_cmd = app.add_subcommand(
       "probe", "Send RTSP OPTIONS, DESCRIBE and SETUP requests");
@@ -369,7 +370,16 @@ int main(int argc, char **argv) {
                    "Number of interleaved RTP/RTCP frames to read")
       ->default_val(300);
 
+  probe_cmd
+      ->add_option("--packet-log-limit", packet_log_limit,
+                   "Maximum number of interleaved frames to print in detail")
+      ->default_val(20);
+
   CLI11_PARSE(app, argc, argv);
+
+  if (packet_log_limit < 0) {
+    packet_log_limit = 0;
+  }
 
   try {
     if (*analyze_cmd) {
@@ -593,6 +603,7 @@ int main(int argc, char **argv) {
 
         std::size_t rtp_frames_received = 0;
         std::size_t rtcp_frames_received = 0;
+        std::size_t interleaved_frames_received = 0;
         std::size_t total_payload_bytes = 0;
 
         const auto capture_start = std::chrono::steady_clock::now();
@@ -600,6 +611,9 @@ int main(int argc, char **argv) {
         for (int i = 0; i < probe_frame_count; ++i) {
           try {
             const auto frame = read_interleaved_frame(socket, pending_tcp_data);
+            ++interleaved_frames_received;
+
+            const bool should_log_packet = i < packet_log_limit;
 
             total_payload_bytes += frame.payload.size();
 
@@ -616,25 +630,38 @@ int main(int argc, char **argv) {
               ++rtcp_frames_received;
             }
 
-            std::cout << "Interleaved frame " << (i + 1)
-                      << " channel=" << static_cast<int>(frame.channel)
-                      << " payload_size=" << frame.payload.size() << " bytes";
+            if (should_log_packet) {
+              std::cout << "Interleaved frame " << (i + 1)
+                        << " channel=" << static_cast<int>(frame.channel)
+                        << " payload_size=" << frame.payload.size() << " bytes";
 
-            if (frame.channel == 0) {
-              std::cout << " type=RTP";
-            } else if (frame.channel == 1) {
-              std::cout << " type=RTCP";
-            } else {
-              std::cout << " type=unknown";
+              if (frame.channel == 0) {
+                std::cout << " type=RTP";
+              } else if (frame.channel == 1) {
+                std::cout << " type=RTCP";
+              } else {
+                std::cout << " type=unknown";
+              }
+
+              std::cout << '\n';
             }
-
-            std::cout << '\n';
 
           } catch (const std::exception &ex) {
             std::cout << "Interleaved RTP receive stopped: " << ex.what()
                       << '\n';
             break;
           }
+        }
+
+        const auto packet_log_limit_count =
+            static_cast<std::size_t>(packet_log_limit);
+
+        if (interleaved_frames_received > packet_log_limit_count) {
+          std::cout << "Packet detail log limited to first "
+                    << packet_log_limit
+                    << " frames out of "
+                    << interleaved_frames_received
+                    << " captured frames.\n";
         }
 
         const auto capture_end = std::chrono::steady_clock::now();
