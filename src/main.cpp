@@ -221,6 +221,7 @@ int main(int argc, char **argv) {
 
   std::string probe_url;
   int probe_timeout_ms = 3000;
+  int probe_frame_count = 300;
 
   auto probe_cmd = app.add_subcommand(
       "probe", "Send RTSP OPTIONS, DESCRIBE and SETUP requests");
@@ -231,6 +232,10 @@ int main(int argc, char **argv) {
       ->add_option("--timeout-ms", probe_timeout_ms,
                    "TCP timeout in milliseconds")
       ->default_val(3000);
+
+  probe_cmd
+    ->add_option("--frames", probe_frame_count, "Number of interleaved RTP/RTCP frames to read")
+    ->default_val(300);
 
   CLI11_PARSE(app, argc, argv);
 
@@ -458,7 +463,7 @@ int main(int argc, char **argv) {
         rtsi::RtpStats rtp_stats;
         rtsi::H264Analyzer h264_analyzer;
 
-        for (int i = 0; i < 300; ++i) {
+        for (int i = 0; i < probe_frame_count; ++i) {
           try {
             const auto frame = read_interleaved_frame(socket, pending_tcp_data);
 
