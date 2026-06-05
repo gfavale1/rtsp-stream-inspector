@@ -1,6 +1,7 @@
 #include "rtsi/app/AnalyzerConfig.hpp"
 #include "rtsi/app/StreamAnalyzer.hpp"
 //#include "rtsi/net/UdpSocket.hpp"
+#include "rtsi/report/AnalysisReport.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
 #include "rtsi/rtsp/InterleavedFrameReader.hpp"
 #include "rtsi/rtsp/RtspClient.hpp"
@@ -119,6 +120,7 @@ int main(int argc, char **argv) {
   int probe_timeout_ms = 3000;
   int probe_frame_count = 300;
   int packet_log_limit = 20;
+  std::string probe_output_path;
 
   auto probe_cmd = app.add_subcommand(
       "probe", "Send RTSP OPTIONS, DESCRIBE and SETUP requests");
@@ -140,6 +142,10 @@ int main(int argc, char **argv) {
                    "Maximum number of interleaved frames to print in detail")
       ->default_val(20);
 
+  probe_cmd
+      ->add_option("--output", probe_output_path,
+                   "Optional JSON report output path");
+
   CLI11_PARSE(app, argc, argv);
 
   if (packet_log_limit < 0) {
@@ -153,10 +159,8 @@ int main(int argc, char **argv) {
       std::cout << "Parsed RTSP source: " << parsed_url.host << ":"
                 << parsed_url.port << parsed_url.path << '\n';
 
-      rtsi::JsonReportWriter writer;
-      writer.write_dummy_report(analyze_config);
-
-      std::cout << "Report written to: " << analyze_config.output_path << '\n';
+      std::cout << "The analyze command is not implemented yet. "
+                << "Use the probe command with --output to generate a JSON report.\n";
 
       return 0;
     }
@@ -344,6 +348,16 @@ int main(int argc, char **argv) {
 
         const auto metrics = analysis_result.metrics;
 
+        auto report = analysis_result.report;
+        report.source.host = parsed_url.host;
+        report.source.port = parsed_url.port;
+        report.source.path = parsed_url.path;
+        report.source.transport = "rtp_interleaved_tcp";
+        report.video.codec = video_track->codec;
+        report.video.payload_type = video_track->payload_type;
+        report.video.clock_rate = video_track->clock_rate;
+        report.video.control = video_track->control;
+
         std::cout << "\n--- RTP INTERLEAVED RECEIVE SUMMARY ---\n";
         std::cout << "RTP frames received: "
                   << analysis_result.rtp_frames_received << '\n';
@@ -375,6 +389,8 @@ int main(int argc, char **argv) {
         std::cout << "Average H264 payload size: "
                   << stream_metrics.average_h264_payload_size << " bytes\n";
 
+        bool teardown_success = false;
+
         try {
           const auto teardown_exchange = client.teardown(session_id);
 
@@ -384,6 +400,8 @@ int main(int argc, char **argv) {
           std::cout << "\n--- RTSP TEARDOWN RESPONSE ---\n";
           print_response_summary(teardown_exchange.response);
 
+          teardown_success = teardown_exchange.response.is_success();
+
           if (!teardown_exchange.response.is_success()) {
             std::cout << "\nRaw response:\n"
                       << teardown_exchange.raw_response << '\n';
@@ -392,6 +410,14 @@ int main(int argc, char **argv) {
         } catch (const std::exception &ex) {
           std::cout << "\nRTSP TEARDOWN response could not be read: "
                     << ex.what() << '\n';
+        }
+
+        report.teardown_success = teardown_success;
+
+        if (!probe_output_path.empty()) {
+          rtsi::JsonReportWriter writer;
+          writer.write_report(report, probe_output_path);
+          std::cout << "\nJSON report written to: " << probe_output_path << '\n';
         }
       }
 

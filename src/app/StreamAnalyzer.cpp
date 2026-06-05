@@ -77,6 +77,14 @@ StreamAnalyzerResult StreamAnalyzer::analyze(
   metrics_collector.stop_capture();
   result.metrics = metrics_collector.snapshot();
 
+  result.report.interleaved.rtp_frames_received = result.rtp_frames_received;
+  result.report.interleaved.rtcp_frames_received = result.rtcp_frames_received;
+  result.report.interleaved.total_interleaved_payload_bytes =
+      result.total_payload_bytes;
+  result.report.rtp = result.metrics.rtp;
+  result.report.h264 = result.metrics.h264;
+  result.report.stream = result.metrics.stream;
+
   return result;
 }
 

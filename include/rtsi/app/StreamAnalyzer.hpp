@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rtsi/metrics/MetricsCollector.hpp"
+#include "rtsi/report/AnalysisReport.hpp"
 #include "rtsi/rtsp/InterleavedFrameReader.hpp"
 
 #include <cstddef>
@@ -36,6 +37,7 @@ struct StreamAnalyzerResult {
   std::size_t total_payload_bytes = 0;
 
   MetricsCollectorSnapshot metrics;
+  AnalysisReport report;
   std::optional<std::string> stop_reason;
 };
 
