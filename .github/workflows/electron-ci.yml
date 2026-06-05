@@ -1,0 +1,33 @@
+name: Electron CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  electron-build:
+    name: Build Electron frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies with lockfile
+        if: ${{ hashFiles('electron-app/package-lock.json') != '' }}
+        working-directory: electron-app
+        run: npm ci --include=optional
+
+      - name: Install dependencies without lockfile
+        if: ${{ hashFiles('electron-app/package-lock.json') == '' }}
+        working-directory: electron-app
+        run: npm install --include=optional
+
+      - name: Build Electron frontend
+        working-directory: electron-app
+        run: npm run build

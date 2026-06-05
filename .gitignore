@@ -17,3 +17,9 @@ reports/
 
 __pycache__/
 .pytest_cache/
+
+electron-app/node_modules/
+electron-app/dist/
+electron-app/.vite/
+electron-app/out/
+electron-app/release/
