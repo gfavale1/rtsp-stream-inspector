@@ -18,12 +18,12 @@ void MetricsCollector::stop_capture() noexcept {
   capture_stopped_ = true;
 }
 
-void MetricsCollector::update_rtp_packet(const RtpPacket& packet,
+void MetricsCollector::update_rtp_packet(const RtpPacket &packet,
                                          std::size_t rtp_packet_size) {
   rtp_stats_.update(packet, rtp_packet_size);
 }
 
-void MetricsCollector::update_h264_nal(const H264NalUnitInfo& nal_info) {
+void MetricsCollector::update_h264_nal(const H264NalUnitInfo &nal_info) {
   h264_analyzer_.update(nal_info);
 }
 
@@ -32,8 +32,7 @@ MetricsCollectorSnapshot MetricsCollector::snapshot() const noexcept {
 
   result.rtp = rtp_stats_.snapshot();
   result.h264 = h264_analyzer_.snapshot();
-  result.stream =
-      StreamMetrics::from_rtp_stats(result.rtp, capture_seconds());
+  result.stream = StreamMetrics::from_rtp_stats(result.rtp, capture_seconds());
 
   return result;
 }

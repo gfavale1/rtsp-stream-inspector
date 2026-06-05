@@ -1,13 +1,10 @@
 #include "rtsi/app/AnalyzerConfig.hpp"
 #include "rtsi/h264/NalUnit.hpp"
 #include "rtsi/metrics/MetricsCollector.hpp"
-#include "rtsi/net/TcpSocket.hpp"
 //#include "rtsi/net/UdpSocket.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
 #include "rtsi/rtp/RtpParser.hpp"
-#include "rtsi/rtsp/RtspAuth.hpp"
-#include "rtsi/rtsp/RtspRequest.hpp"
-#include "rtsi/rtsp/RtspResponse.hpp"
+#include "rtsi/rtsp/RtspClient.hpp"
 #include "rtsi/rtsp/RtspUrl.hpp"
 #include "rtsi/rtsp/SdpParser.hpp"
 
@@ -26,172 +23,6 @@
 #include <vector>
 
 namespace {
-
-std::string trim(std::string value) {
-  while (!value.empty() &&
-         std::isspace(static_cast<unsigned char>(value.front())) != 0) {
-    value.erase(value.begin());
-  }
-
-  while (!value.empty() &&
-         std::isspace(static_cast<unsigned char>(value.back())) != 0) {
-    value.pop_back();
-  }
-
-  return value;
-}
-
-bool iequals(const std::string &lhs, const std::string &rhs) {
-  return lhs.size() == rhs.size() &&
-         std::equal(lhs.begin(), lhs.end(), rhs.begin(),
-                    [](unsigned char a, unsigned char b) {
-                      return std::tolower(a) == std::tolower(b);
-                    });
-}
-
-std::optional<std::size_t>
-extract_content_length_from_headers(const std::string &header_block) {
-  std::istringstream stream(header_block);
-  std::string line;
-
-  while (std::getline(stream, line)) {
-    if (!line.empty() && line.back() == '\r') {
-      line.pop_back();
-    }
-
-    const auto colon = line.find(':');
-
-    if (colon == std::string::npos) {
-      continue;
-    }
-
-    const auto name = trim(line.substr(0, colon));
-    const auto value = trim(line.substr(colon + 1));
-
-    if (iequals(name, "Content-Length")) {
-      return static_cast<std::size_t>(std::stoull(value));
-    }
-  }
-
-  return std::nullopt;
-}
-
-std::string read_full_rtsp_response(rtsi::TcpSocket &socket) {
-  std::string raw = socket.receive_until("\r\n\r\n", 65536);
-
-  std::size_t header_end = raw.find("\r\n\r\n");
-  std::size_t separator_size = 4;
-
-  if (header_end == std::string::npos) {
-    header_end = raw.find("\n\n");
-    separator_size = 2;
-  }
-
-  if (header_end == std::string::npos) {
-    throw std::runtime_error("Invalid RTSP response: missing header separator");
-  }
-
-  const auto header_block = raw.substr(0, header_end);
-  const auto content_length = extract_content_length_from_headers(header_block);
-
-  if (!content_length.has_value()) {
-    return raw;
-  }
-
-  const std::size_t body_start = header_end + separator_size;
-
-  const std::size_t already_received_body_bytes =
-      raw.size() > body_start ? raw.size() - body_start : 0;
-
-  if (already_received_body_bytes < content_length.value()) {
-    const std::size_t missing =
-        content_length.value() - already_received_body_bytes;
-
-    raw += socket.receive_exact(missing);
-  }
-
-  return raw;
-}
-
-std::string read_rtsp_response_skipping_interleaved(rtsi::TcpSocket &socket) {
-  std::string rolling_prefix;
-
-  while (true) {
-    const auto byte = socket.receive_exact(1);
-
-    if (byte.empty()) {
-      throw std::runtime_error("Failed to read RTSP response prefix");
-    }
-
-    const auto value = static_cast<unsigned char>(byte[0]);
-
-    if (value == 0x24) {
-      const auto header = socket.receive_exact(3);
-
-      if (header.size() != 3) {
-        throw std::runtime_error(
-            "Incomplete interleaved frame header before RTSP response");
-      }
-
-      const auto length = static_cast<std::uint16_t>(
-          (static_cast<unsigned char>(header[1]) << 8) |
-          static_cast<unsigned char>(header[2]));
-
-      if (length > 0) {
-        static_cast<void>(socket.receive_exact(length));
-      }
-
-      rolling_prefix.clear();
-      continue;
-    }
-
-    rolling_prefix += byte;
-
-    if (rolling_prefix.size() > 5) {
-      rolling_prefix.erase(0, rolling_prefix.size() - 5);
-    }
-
-    if (rolling_prefix == "RTSP/") {
-      break;
-    }
-  }
-
-  std::string raw_response = "RTSP/";
-  raw_response += socket.receive_until("\r\n\r\n", 65536);
-
-  std::size_t header_end = raw_response.find("\r\n\r\n");
-  std::size_t separator_size = 4;
-
-  if (header_end == std::string::npos) {
-    header_end = raw_response.find("\n\n");
-    separator_size = 2;
-  }
-
-  if (header_end == std::string::npos) {
-    throw std::runtime_error("Invalid RTSP response: missing header separator");
-  }
-
-  const auto header_block = raw_response.substr(0, header_end);
-  const auto content_length = extract_content_length_from_headers(header_block);
-
-  if (!content_length.has_value()) {
-    return raw_response;
-  }
-
-  const std::size_t body_start = header_end + separator_size;
-
-  const std::size_t already_received_body_bytes =
-      raw_response.size() > body_start ? raw_response.size() - body_start : 0;
-
-  if (already_received_body_bytes < content_length.value()) {
-    const std::size_t missing =
-        content_length.value() - already_received_body_bytes;
-
-    raw_response += socket.receive_exact(missing);
-  }
-
-  return raw_response;
-}
 
 void print_response_summary(const rtsi::RtspResponse &response) {
   std::cout << "Status: " << response.status_code() << " "
@@ -395,88 +226,59 @@ int main(int argc, char **argv) {
 
     if (*probe_cmd) {
       const auto parsed_url = rtsi::RtspUrl::parse(probe_url);
-      const auto request_uri = parsed_url.request_uri();
 
       std::cout << "Connecting to " << parsed_url.host << ":" << parsed_url.port
                 << "...\n";
 
-      rtsi::TcpSocket socket;
-      socket.connect_to(parsed_url.host, parsed_url.port, probe_timeout_ms);
+      rtsi::RtspClient client(parsed_url);
+      client.connect(probe_timeout_ms);
 
-      {
-        const auto request = rtsi::RtspRequest::options(request_uri, 1);
-        const auto serialized_request = request.serialize();
+      const auto request_uri = client.request_uri();
 
-        std::cout << "\n--- RTSP OPTIONS REQUEST ---\n";
-        std::cout << serialized_request;
+      const auto options_exchange = client.options();
 
-        socket.send_all(serialized_request);
+      std::cout << "\n--- RTSP OPTIONS REQUEST ---\n";
+      std::cout << options_exchange.serialized_request;
 
-        const auto raw_response = read_full_rtsp_response(socket);
-        const auto response = rtsi::RtspResponse::parse(raw_response);
+      std::cout << "\n--- RTSP OPTIONS RESPONSE ---\n";
+      print_response_summary(options_exchange.response);
 
-        std::cout << "\n--- RTSP OPTIONS RESPONSE ---\n";
-        print_response_summary(response);
-
-        if (!response.is_success()) {
-          std::cout << "\nRaw response:\n" << raw_response << '\n';
-          return 1;
-        }
+      if (!options_exchange.response.is_success()) {
+        std::cout << "\nRaw response:\n" << options_exchange.raw_response << '\n';
+        return 1;
       }
 
-      rtsi::RtspResponse describe_response;
-      std::string raw_describe_response;
+      const auto describe_result = client.describe_with_basic_auth_retry();
 
-      {
-        auto request = rtsi::RtspRequest::describe(request_uri, 2);
-        const auto serialized_request = request.serialize();
+      std::cout << "\n--- RTSP DESCRIBE REQUEST ---\n";
+      std::cout << describe_result.initial_exchange.serialized_request;
 
-        std::cout << "\n--- RTSP DESCRIBE REQUEST ---\n";
-        std::cout << serialized_request;
+      std::cout << "\n--- RTSP DESCRIBE RESPONSE ---\n";
+      print_response_summary(describe_result.initial_exchange.response);
 
-        socket.send_all(serialized_request);
+      if (describe_result.used_basic_auth &&
+          describe_result.authenticated_exchange.has_value()) {
+        std::cout << "\nDESCRIBE requires authentication. "
+                  << "Retrying with Basic authentication...\n";
 
-        raw_describe_response = read_full_rtsp_response(socket);
-        describe_response = rtsi::RtspResponse::parse(raw_describe_response);
+        std::cout << "\n--- RTSP DESCRIBE AUTHENTICATED REQUEST ---\n";
+        std::cout << describe_result.authenticated_exchange
+                         ->serialized_request;
 
-        std::cout << "\n--- RTSP DESCRIBE RESPONSE ---\n";
-        print_response_summary(describe_response);
-
-        if (describe_response.status_code() == 401 &&
-            parsed_url.has_credentials()) {
-          std::cout << "\nDESCRIBE requires authentication. "
-                    << "Retrying with Basic authentication...\n";
-
-          auto authenticated_request =
-              rtsi::RtspRequest::describe(request_uri, 3);
-
-          authenticated_request.set_header(
-              "Authorization", rtsi::make_basic_authorization_value(
-                                   parsed_url.username, parsed_url.password));
-
-          const auto authenticated_serialized_request =
-              authenticated_request.serialize();
-
-          std::cout << "\n--- RTSP DESCRIBE AUTHENTICATED REQUEST ---\n";
-          std::cout << authenticated_serialized_request;
-
-          socket.send_all(authenticated_serialized_request);
-
-          raw_describe_response = read_full_rtsp_response(socket);
-          describe_response = rtsi::RtspResponse::parse(raw_describe_response);
-
-          std::cout << "\n--- RTSP DESCRIBE AUTHENTICATED RESPONSE ---\n";
-          print_response_summary(describe_response);
-        }
-
-        if (!describe_response.is_success()) {
-          std::cout << "\nRaw response:\n" << raw_describe_response << '\n';
-          return 1;
-        }
-
-        std::cout << "\n--- SDP BODY ---\n";
-        std::cout << describe_response.body() << '\n';
+        std::cout << "\n--- RTSP DESCRIBE AUTHENTICATED RESPONSE ---\n";
+        print_response_summary(
+            describe_result.authenticated_exchange->response);
       }
+
+      const auto describe_response = describe_result.response;
+
+      if (!describe_response.is_success()) {
+        std::cout << "\nRaw response:\n" << describe_result.raw_response << '\n';
+        return 1;
+      }
+
+      std::cout << "\n--- SDP BODY ---\n";
+      std::cout << describe_response.body() << '\n';
 
       const auto sdp = rtsi::SdpParser::parse(describe_response.body());
 
@@ -512,86 +314,51 @@ int main(int argc, char **argv) {
       }
 
       {
-        //rtsi::UdpSocket rtp_socket;
-        //rtp_socket.bind_to(5000, 3000);
-
-        //std::cout << "\nListening for RTP packets on UDP port 5000...\n";
-        const std::string transport = "RTP/AVP/TCP;unicast;interleaved=0-1";
-
-        auto setup_request =
-            rtsi::RtspRequest::setup(video_setup_uri, 4, transport);
-
-        if (parsed_url.has_credentials()) {
-          setup_request.set_header(
-              "Authorization", rtsi::make_basic_authorization_value(
-                                   parsed_url.username, parsed_url.password));
-        }
-
-        const auto serialized_setup_request = setup_request.serialize();
+        const auto setup_result = client.setup_interleaved(video_setup_uri);
+        const auto& setup_exchange = setup_result.exchange;
 
         std::cout << "\n--- RTSP SETUP REQUEST ---\n";
-        std::cout << serialized_setup_request;
-
-        socket.send_all(serialized_setup_request);
-
-        const auto raw_setup_response = read_full_rtsp_response(socket);
-        const auto setup_response =
-            rtsi::RtspResponse::parse(raw_setup_response);
+        std::cout << setup_exchange.serialized_request;
 
         std::cout << "\n--- RTSP SETUP RESPONSE ---\n";
-        print_response_summary(setup_response);
+        print_response_summary(setup_exchange.response);
 
-        if (setup_response.header("Transport").has_value()) {
+        if (setup_exchange.response.header("Transport").has_value()) {
           std::cout << "Transport: "
-                    << setup_response.header("Transport").value() << '\n';
+                    << setup_exchange.response.header("Transport").value()
+                    << '\n';
         }
 
-        if (!setup_response.is_success()) {
-          std::cout << "\nRaw response:\n" << raw_setup_response << '\n';
+        if (!setup_exchange.response.is_success()) {
+          std::cout << "\nRaw response:\n" << setup_exchange.raw_response << '\n';
           return 1;
         }
 
-        if (!setup_response.session_id().has_value()) {
+        if (setup_result.session_id.empty()) {
           std::cout
               << "SETUP succeeded but no RTSP Session header was found.\n";
           return 1;
         }
 
         std::cout << "\nRTSP session established successfully.\n";
-        std::cout << "Session ID: " << setup_response.session_id().value()
-                  << '\n';
+        std::cout << "Session ID: " << setup_result.session_id << '\n';
 
-        const auto session_id = setup_response.session_id().value();
+        const auto session_id = setup_result.session_id;
 
-        auto play_request = rtsi::RtspRequest::play(request_uri, 5, session_id);
-
-        play_request.set_header("Range", "npt=0.000-");
-
-        if (parsed_url.has_credentials()) {
-          play_request.set_header(
-              "Authorization", rtsi::make_basic_authorization_value(
-                                   parsed_url.username, parsed_url.password));
-        }
-
-        const auto serialized_play_request = play_request.serialize();
+        const auto play_exchange = client.play(session_id);
 
         std::cout << "\n--- RTSP PLAY REQUEST ---\n";
-        std::cout << serialized_play_request;
-
-        socket.send_all(serialized_play_request);
-
-        const auto raw_play_response = read_full_rtsp_response(socket);
-        const auto play_response = rtsi::RtspResponse::parse(raw_play_response);
+        std::cout << play_exchange.serialized_request;
 
         std::cout << "\n--- RTSP PLAY RESPONSE ---\n";
-        print_response_summary(play_response);
+        print_response_summary(play_exchange.response);
 
-        if (!play_response.is_success()) {
-          std::cout << "\nRaw response:\n" << raw_play_response << '\n';
+        if (!play_exchange.response.is_success()) {
+          std::cout << "\nRaw response:\n" << play_exchange.raw_response << '\n';
           return 1;
         }
 
-        std::string pending_tcp_data = play_response.body();
+        std::string pending_tcp_data = play_exchange.response.body();
 
         std::cout << "\nReceiving RTP interleaved frames over TCP...\n";
 
@@ -605,7 +372,8 @@ int main(int argc, char **argv) {
 
         for (int i = 0; i < probe_frame_count; ++i) {
           try {
-            const auto frame = read_interleaved_frame(socket, pending_tcp_data);
+            const auto frame =
+                read_interleaved_frame(client.socket(), pending_tcp_data);
             ++interleaved_frames_received;
 
             const bool should_log_packet = i < packet_log_limit;
@@ -691,34 +459,18 @@ int main(int argc, char **argv) {
         std::cout << "Average H264 payload size: "
                   << stream_metrics.average_h264_payload_size << " bytes\n";
 
-        auto teardown_request =
-            rtsi::RtspRequest::teardown(request_uri, 6, session_id);
-
-        if (parsed_url.has_credentials()) {
-          teardown_request.set_header(
-              "Authorization", rtsi::make_basic_authorization_value(
-                                   parsed_url.username, parsed_url.password));
-        }
-
-        const auto serialized_teardown_request = teardown_request.serialize();
-
-        std::cout << "\n--- RTSP TEARDOWN REQUEST ---\n";
-        std::cout << serialized_teardown_request;
-
-        socket.send_all(serialized_teardown_request);
-
         try {
-          const auto raw_teardown_response =
-              read_rtsp_response_skipping_interleaved(socket);
+          const auto teardown_exchange = client.teardown(session_id);
 
-          const auto teardown_response =
-              rtsi::RtspResponse::parse(raw_teardown_response);
+          std::cout << "\n--- RTSP TEARDOWN REQUEST ---\n";
+          std::cout << teardown_exchange.serialized_request;
 
           std::cout << "\n--- RTSP TEARDOWN RESPONSE ---\n";
-          print_response_summary(teardown_response);
+          print_response_summary(teardown_exchange.response);
 
-          if (!teardown_response.is_success()) {
-            std::cout << "\nRaw response:\n" << raw_teardown_response << '\n';
+          if (!teardown_exchange.response.is_success()) {
+            std::cout << "\nRaw response:\n"
+                      << teardown_exchange.raw_response << '\n';
           }
 
         } catch (const std::exception &ex) {

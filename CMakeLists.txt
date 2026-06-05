@@ -34,6 +34,7 @@ add_library(rtsi_core
     src/h264/H264Analyzer.cpp
     src/metrics/StreamMetrics.cpp
     src/metrics/MetricsCollector.cpp
+    src/rtsp/RtspClient.cpp
 )
 
 target_include_directories(rtsi_core
