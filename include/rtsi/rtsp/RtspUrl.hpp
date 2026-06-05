@@ -23,6 +23,8 @@ struct RtspUrl {
   // const - don't modify the object that calls
   [[nodiscard]] std::string authority() const;
 
+  [[nodiscard]] std::string request_uri() const;
+  
   static RtspUrl parse(const std::string &raw_url);
 };
 } // namespace rtsi

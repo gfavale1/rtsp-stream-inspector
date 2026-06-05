@@ -28,6 +28,8 @@ public:
 
     [[nodiscard]] std::string receive_some(std::size_t max_bytes = 4096);
 
+    [[nodiscard]] std::string receive_exact(std::size_t byte_count);
+
     [[nodiscard]] std::string receive_until(
         std::string_view delimiter,
         std::size_t max_bytes = 65536

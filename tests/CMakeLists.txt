@@ -1,6 +1,10 @@
 add_executable(rtsi_tests
     test_rtsp_url.cpp
     test_rtsp_request.cpp
+    test_rtsp_response.cpp
+    test_rtsp_session.cpp
+    test_rtsp_auth.cpp
+    test_sdp_parser.cpp
 )
 
 target_link_libraries(rtsi_tests

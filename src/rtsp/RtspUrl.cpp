@@ -68,6 +68,19 @@ std::string RtspUrl::authority() const {
     return result;
 }
 
+std::string RtspUrl::request_uri() const {
+    std::string uri;
+
+    uri += scheme;
+    uri += "://";
+    uri += host;
+    uri += ":";
+    uri += std::to_string(port);
+    uri += path;
+
+    return uri;
+}
+
 // parser
 RtspUrl RtspUrl::parse(const std::string& raw_url) {
     if(raw_url.empty())
