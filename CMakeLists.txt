@@ -28,6 +28,7 @@ add_library(rtsi_core
 
     src/rtp/RtpPacket.cpp
     src/rtp/RtpParser.cpp
+    src/rtp/RtpStats.cpp
 )
 
 target_include_directories(rtsi_core

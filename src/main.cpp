@@ -3,6 +3,7 @@
 // #include "rtsi/net/UdpSocket.hpp"
 #include "rtsi/report/JsonReportWriter.hpp"
 #include "rtsi/rtp/RtpParser.hpp"
+#include "rtsi/rtp/RtpStats.hpp"
 #include "rtsi/rtsp/RtspAuth.hpp"
 #include "rtsi/rtsp/RtspRequest.hpp"
 #include "rtsi/rtsp/RtspResponse.hpp"
@@ -452,6 +453,8 @@ int main(int argc, char **argv) {
         std::size_t rtcp_frames_received = 0;
         std::size_t total_payload_bytes = 0;
 
+        rtsi::RtpStats rtp_stats;
+
         for (int i = 0; i < 20; ++i) {
           try {
             const auto frame = read_interleaved_frame(socket, pending_tcp_data);
@@ -473,6 +476,7 @@ int main(int argc, char **argv) {
 
               try {
                 const auto rtp_packet = rtsi::RtpParser::parse(frame.payload);
+                rtp_stats.update(rtp_packet, frame.payload.size());
 
                 std::cout << " seq=" << rtp_packet.sequence_number
                           << " ts=" << rtp_packet.timestamp
@@ -504,6 +508,42 @@ int main(int argc, char **argv) {
         std::cout << "RTP frames received: " << rtp_frames_received << '\n';
         std::cout << "RTCP frames received: " << rtcp_frames_received << '\n';
         std::cout << "Total payload bytes: " << total_payload_bytes << '\n';
+
+        const auto stats = rtp_stats.snapshot();
+
+        std::cout << "\n--- RTP PARSER STATS ---\n";
+        std::cout << "Packets received: " << stats.packets_received << '\n';
+        std::cout << "Packets lost estimated: " << stats.packets_lost << '\n';
+        std::cout << "Out-of-order packets: " << stats.out_of_order_packets
+                  << '\n';
+        std::cout << "Loss rate: " << stats.loss_rate() << '\n';
+        std::cout << "Total RTP bytes: " << stats.total_rtp_bytes << '\n';
+        std::cout << "Total RTP payload bytes: " << stats.total_payload_bytes
+                  << '\n';
+
+        if (stats.first_sequence_number.has_value()) {
+          std::cout << "First sequence number: "
+                    << stats.first_sequence_number.value() << '\n';
+        }
+
+        if (stats.last_sequence_number.has_value()) {
+          std::cout << "Last sequence number: "
+                    << stats.last_sequence_number.value() << '\n';
+        }
+
+        if (stats.last_timestamp.has_value()) {
+          std::cout << "Last RTP timestamp: " << stats.last_timestamp.value()
+                    << '\n';
+        }
+
+        if (stats.payload_type.has_value()) {
+          std::cout << "Payload type: "
+                    << static_cast<int>(stats.payload_type.value()) << '\n';
+        }
+
+        if (stats.ssrc.has_value()) {
+          std::cout << "SSRC: " << stats.ssrc.value() << '\n';
+        }
       }
 
       return 0;
