@@ -9,14 +9,13 @@ The project combines a native analyzer with a React/Electron desktop UI. The bac
 
 ## Screenshots
 
-Screenshots can be added under `docs/assets/` as:
+![Stream connection and triage dashboard](docs/assets/ui-dashboard.png)
 
-- `ui-dashboard.png`
-- `ui-h264.png`
-- `ui-quality.png`
-- `ui-reports.png`
+![H.264 NAL-unit inspection](docs/assets/ui-h264.png)
 
-See [docs/assets/README.md](docs/assets/README.md) for screenshot handling rules. Do not include real RTSP URLs, credentials, private camera IPs, or tokens in screenshots.
+![Quality metrics dashboard](docs/assets/ui-quality.png)
+
+![RTP and RTCP diagnostics](docs/assets/ui-reports.png)
 
 ## Why this project exists
 
