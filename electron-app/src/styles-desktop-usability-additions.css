@@ -1,0 +1,46 @@
+/* Add these rules to electron-app/src/styles.css if they are not already present. */
+
+.path-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.inline-status,
+.inline-error {
+  margin: 10px 0 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.inline-status {
+  color: var(--muted);
+  background: rgba(47, 129, 247, 0.08);
+  border: 1px solid rgba(47, 129, 247, 0.18);
+}
+
+.inline-error {
+  color: #ffb4ad;
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.18);
+}
+
+@media (max-width: 560px) {
+  .path-row,
+  .report-row {
+    grid-template-columns: 1fr;
+  }
+
+  .report-actions {
+    justify-content: flex-start;
+  }
+}

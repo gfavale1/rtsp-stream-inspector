@@ -1,17 +1,15 @@
-const { app, BrowserWindow, ipcMain, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const { spawn } = require("node:child_process");
 
 const isDev = !app.isPackaged;
-
 let currentAnalysisProcess = null;
 let currentStopRequested = false;
 
 function createWindow() {
   Menu.setApplicationMenu(null);
-
   const window = new BrowserWindow({
     width: 1240,
     height: 820,
@@ -22,8 +20,8 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
-    }
+      sandbox: false,
+    },
   });
 
   if (isDev) {
@@ -39,16 +37,9 @@ function defaultBinaryPath() {
 }
 
 function resolveBinaryPath(binaryPath) {
-  if (!binaryPath || String(binaryPath).trim() === "") {
-    return defaultBinaryPath();
-  }
-
+  if (!binaryPath || String(binaryPath).trim() === "") return defaultBinaryPath();
   const trimmed = String(binaryPath).trim();
-  if (path.isAbsolute(trimmed)) {
-    return trimmed;
-  }
-
-  return path.resolve(__dirname, "..", trimmed);
+  return path.isAbsolute(trimmed) ? trimmed : path.resolve(__dirname, "..", trimmed);
 }
 
 function sanitizeOptions(rawOptions) {
@@ -58,23 +49,14 @@ function sanitizeOptions(rawOptions) {
     frames: Number.parseInt(rawOptions?.frames ?? 1000, 10),
     packetLogLimit: Number.parseInt(rawOptions?.packetLogLimit ?? 0, 10),
     generateMarkdown: rawOptions?.generateMarkdown !== false,
-    binaryPath: String(rawOptions?.binaryPath ?? "")
+    binaryPath: String(rawOptions?.binaryPath ?? ""),
   };
 }
 
 function validateOptions(options) {
-  if (!options.rtspUrl.trim()) {
-    throw new Error("RTSP URL is required.");
-  }
-
-  if (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0) {
-    throw new Error("Timeout must be a positive number.");
-  }
-
-  if (!Number.isFinite(options.frames) || options.frames <= 0) {
-    throw new Error("Frames must be a positive number.");
-  }
-
+  if (!options.rtspUrl.trim()) throw new Error("RTSP URL is required.");
+  if (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0) throw new Error("Timeout must be a positive number.");
+  if (!Number.isFinite(options.frames) || options.frames <= 0) throw new Error("Frames must be a positive number.");
   if (!Number.isFinite(options.packetLogLimit) || options.packetLogLimit < 0) {
     throw new Error("Packet log limit must be zero or a positive number.");
   }
@@ -84,10 +66,27 @@ function sendLog(event, message) {
   event.sender.send("analysis-log", String(message));
 }
 
+ipcMain.handle("open-path", async (_event, targetPath) => {
+  if (!targetPath) return { opened: false };
+  const result = await shell.openPath(String(targetPath));
+  return { opened: result === "", error: result || null };
+});
+
+ipcMain.handle("show-in-folder", async (_event, targetPath) => {
+  if (!targetPath) return { shown: false };
+  shell.showItemInFolder(String(targetPath));
+  return { shown: true };
+});
+
+
+ipcMain.handle("delete-path", async (_event, targetPath) => {
+  if (!targetPath) return { deleted: false };
+  await fs.rm(String(targetPath), { force: true, recursive: false });
+  return { deleted: true };
+});
+
 ipcMain.handle("run-analysis", async (event, rawOptions) => {
-  if (currentAnalysisProcess) {
-    throw new Error("An analysis is already running.");
-  }
+  if (currentAnalysisProcess) throw new Error("An analysis is already running.");
 
   const options = sanitizeOptions(rawOptions);
   validateOptions(options);
@@ -99,38 +98,38 @@ ipcMain.handle("run-analysis", async (event, rawOptions) => {
 
   const args = [
     "analyze",
-    "--url", options.rtspUrl,
-    "--timeout-ms", String(options.timeoutMs),
-    "--frames", String(options.frames),
-    "--packet-log-limit", String(options.packetLogLimit),
-    "--output", jsonPath
+    "--url",
+    options.rtspUrl,
+    "--timeout-ms",
+    String(options.timeoutMs),
+    "--frames",
+    String(options.frames),
+    "--packet-log-limit",
+    String(options.packetLogLimit),
+    "--output",
+    jsonPath,
   ];
 
-  if (options.generateMarkdown) {
-    args.push("--markdown", markdownPath);
-  }
+  if (options.generateMarkdown) args.push("--markdown", markdownPath);
 
   currentStopRequested = false;
-
   sendLog(event, `Using analyzer: ${binary}\n`);
   sendLog(event, `Report directory: ${reportDir}\n`);
   sendLog(event, "Starting analysis...\n");
 
   return await new Promise((resolve, reject) => {
-    const child = spawn(binary, args, {
+    const spawnCommand = process.platform === "win32" ? binary : "stdbuf";
+    const spawnArgs = process.platform === "win32" ? args : ["-oL", "-eL", binary, ...args];
+
+    const child = spawn(spawnCommand, spawnArgs, {
       cwd: path.resolve(__dirname, "..", ".."),
-      windowsHide: true
+      windowsHide: true,
     });
 
     currentAnalysisProcess = child;
 
-    child.stdout.on("data", (chunk) => {
-      sendLog(event, chunk.toString());
-    });
-
-    child.stderr.on("data", (chunk) => {
-      sendLog(event, chunk.toString());
-    });
+    child.stdout.on("data", (chunk) => sendLog(event, chunk.toString()));
+    child.stderr.on("data", (chunk) => sendLog(event, chunk.toString()));
 
     child.on("error", (error) => {
       currentAnalysisProcess = null;
@@ -139,13 +138,11 @@ ipcMain.handle("run-analysis", async (event, rawOptions) => {
 
     child.on("close", async (code) => {
       currentAnalysisProcess = null;
-
       if (currentStopRequested) {
         currentStopRequested = false;
         reject(new Error("Analysis stopped by user."));
         return;
       }
-
       if (code !== 0) {
         reject(new Error(`rtsp-inspector exited with code ${code}`));
         return;
@@ -154,14 +151,13 @@ ipcMain.handle("run-analysis", async (event, rawOptions) => {
       try {
         const reportText = await fs.readFile(jsonPath, "utf8");
         const report = JSON.parse(reportText);
-
         resolve({
           report,
           paths: {
             json: jsonPath,
             markdown: options.generateMarkdown ? markdownPath : null,
-            directory: reportDir
-          }
+            directory: reportDir,
+          },
         });
       } catch (error) {
         reject(new Error(`Analysis completed, but report.json could not be read: ${error.message}`));
@@ -171,28 +167,19 @@ ipcMain.handle("run-analysis", async (event, rawOptions) => {
 });
 
 ipcMain.handle("stop-analysis", async () => {
-  if (!currentAnalysisProcess) {
-    return { stopped: false };
-  }
-
+  if (!currentAnalysisProcess) return { stopped: false };
   currentStopRequested = true;
   currentAnalysisProcess.kill("SIGTERM");
-
   return { stopped: true };
 });
 
 app.whenReady().then(() => {
   createWindow();
-
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  if (process.platform !== "darwin") app.quit();
 });

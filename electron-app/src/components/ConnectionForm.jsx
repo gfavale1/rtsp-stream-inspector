@@ -12,6 +12,7 @@ export default function ConnectionForm({
 }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [showUrl, setShowUrl] = useState(false);
+  const [pickerError, setPickerError] = useState("");
 
   function updateField(field, value) {
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -20,6 +21,34 @@ export default function ConnectionForm({
   function submit(event) {
     event.preventDefault();
     onStart();
+  }
+
+  async function browseBinary() {
+    setPickerError("");
+
+    try {
+      const result = await window.rtspInspector.selectBinaryPath();
+
+      if (!result.canceled && result.path) {
+        updateField("binaryPath", result.path);
+      }
+    } catch (error) {
+      setPickerError(error?.message ?? "Unable to select binary.");
+    }
+  }
+
+  async function selectOutputDirectory() {
+    setPickerError("");
+
+    try {
+      const result = await window.rtspInspector.selectOutputDirectory();
+
+      if (!result.canceled && result.path) {
+        updateField("outputDirectory", result.path);
+      }
+    } catch (error) {
+      setPickerError(error?.message ?? "Unable to select output directory.");
+    }
   }
 
   return (
@@ -109,13 +138,40 @@ export default function ConnectionForm({
           <div className="advanced-panel">
             <label className="field">
               <span>Binary path</span>
-              <input
-                type="text"
-                value={form.binaryPath}
-                onChange={(event) => updateField("binaryPath", event.target.value)}
-                disabled={isRunning}
-                placeholder="../build/rtsp-inspector"
-              />
+              <div className="path-row">
+                <input
+                  type="text"
+                  value={form.binaryPath}
+                  onChange={(event) => updateField("binaryPath", event.target.value)}
+                  disabled={isRunning}
+                  placeholder="../build/rtsp-inspector"
+                />
+                <button type="button" className="small-button" disabled={isRunning} onClick={browseBinary}>
+                  Browse
+                </button>
+              </div>
+            </label>
+
+            <label className="field">
+              <span>Output directory</span>
+              <div className="path-row">
+                <input
+                  type="text"
+                  value={form.outputDirectory}
+                  onChange={(event) => updateField("outputDirectory", event.target.value)}
+                  disabled={isRunning}
+                  placeholder="Temporary directory"
+                />
+                <button
+                  type="button"
+                  className="small-button"
+                  disabled={isRunning}
+                  onClick={selectOutputDirectory}
+                >
+                  Select
+                </button>
+              </div>
+              <small>Leave empty to use a temporary folder.</small>
             </label>
 
             <label className="checkbox-row">
@@ -127,6 +183,8 @@ export default function ConnectionForm({
               />
               Generate Markdown report
             </label>
+
+            {pickerError && <p className="inline-error">{pickerError}</p>}
           </div>
         )}
 

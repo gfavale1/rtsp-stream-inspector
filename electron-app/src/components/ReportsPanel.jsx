@@ -1,3 +1,4 @@
+import { useState } from "react";
 import SectionCard from "./SectionCard.jsx";
 import { MetricRow } from "./shared.jsx";
 
@@ -6,21 +7,72 @@ async function copyText(text) {
   await navigator.clipboard.writeText(text);
 }
 
-function ReportRow({ label, path }) {
+function ReportRow({ label, path, onStatus }) {
+  async function handleCopy() {
+    try {
+      await copyText(path);
+      onStatus(`${label} path copied.`);
+    } catch (error) {
+      onStatus(error?.message ?? `Unable to copy ${label} path.`);
+    }
+  }
+
+  async function handleOpen() {
+    try {
+      const result = await window.rtspInspector.openPath(path);
+
+      if (!result.ok) {
+        onStatus(result.error || `Unable to open ${label}.`);
+        return;
+      }
+
+      onStatus(`${label} opened.`);
+    } catch (error) {
+      onStatus(error?.message ?? `Unable to open ${label}.`);
+    }
+  }
+
+  async function handleShowInFolder() {
+    try {
+      const result = await window.rtspInspector.showInFolder(path);
+
+      if (!result.ok) {
+        onStatus(result.error || `Unable to show ${label} in folder.`);
+        return;
+      }
+
+      onStatus(`${label} revealed in folder.`);
+    } catch (error) {
+      onStatus(error?.message ?? `Unable to show ${label} in folder.`);
+    }
+  }
+
+  const generated = Boolean(path);
+
   return (
     <div className="report-row">
       <div>
         <strong>{label}</strong>
-        <code>{path ?? "—"}</code>
+        <code>{generated ? path : "Not generated"}</code>
       </div>
-      <button type="button" className="small-button" disabled={!path} onClick={() => copyText(path)}>
-        Copy
-      </button>
+      <div className="report-actions">
+        <button type="button" className="small-button" disabled={!generated} onClick={handleCopy}>
+          Copy
+        </button>
+        <button type="button" className="small-button" disabled={!generated} onClick={handleOpen}>
+          Open
+        </button>
+        <button type="button" className="small-button" disabled={!generated} onClick={handleShowInFolder}>
+          Show
+        </button>
+      </div>
     </div>
   );
 }
 
 export default function ReportsPanel({ paths, metadata, configuration, compact = false }) {
+  const [statusMessage, setStatusMessage] = useState("");
+
   if (compact) {
     return (
       <SectionCard title="Reports">
@@ -28,8 +80,13 @@ export default function ReportsPanel({ paths, metadata, configuration, compact =
           <MetricRow label="Command" value={metadata?.command ?? "analyze"} />
           <MetricRow label="Generated" value={metadata?.generated_at_utc ?? "—"} />
         </div>
-        <ReportRow label="JSON" path={paths?.json} />
-        <ReportRow label="Markdown" path={paths?.markdown} />
+
+        <div className="report-list">
+          <ReportRow label="JSON" path={paths?.json} onStatus={setStatusMessage} />
+          <ReportRow label="Markdown" path={paths?.markdown} onStatus={setStatusMessage} />
+        </div>
+
+        {statusMessage && <p className="inline-status">{statusMessage}</p>}
       </SectionCard>
     );
   }
@@ -48,9 +105,11 @@ export default function ReportsPanel({ paths, metadata, configuration, compact =
       </div>
 
       <div className="report-list">
-        <ReportRow label="JSON report" path={paths?.json} />
-        <ReportRow label="Markdown report" path={paths?.markdown} />
+        <ReportRow label="JSON report" path={paths?.json} onStatus={setStatusMessage} />
+        <ReportRow label="Markdown report" path={paths?.markdown} onStatus={setStatusMessage} />
       </div>
+
+      {statusMessage && <p className="inline-status">{statusMessage}</p>}
     </SectionCard>
   );
 }
