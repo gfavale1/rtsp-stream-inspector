@@ -401,6 +401,7 @@ function App() {
   }
 
   const rtp = report?.rtp ?? {};
+  const rtcp = report?.rtcp ?? {};
   const h264 = report?.h264 ?? {};
   const quality = report?.rtp_quality ?? {};
   const metrics = report?.stream_metrics ?? {};
@@ -565,6 +566,30 @@ function App() {
               <MicroMetric label="Packet loss" value={fixed((rtp.loss_rate ?? 0) * 100, 2)} unit="%" tone={(rtp.loss_rate ?? 0) > 0.02 ? "warning" : "ok"} />
               <MicroMetric label="Out-of-order" value={n(rtp.out_of_order_packets)} tone={rtp.out_of_order_packets > 0 ? "warning" : "ok"} />
               <MicroMetric label="RTP bitrate" value={fixed(metrics.rtp_bitrate_mbps, 2)} unit="Mbps" />
+            </div>
+
+
+
+            <div className="panel-card rtcp-panel">
+              <div className="panel-title-row">
+                <h2>RTCP Control Plane</h2>
+                <CircleDot size={16} />
+              </div>
+              <div className="counter-grid rtcp-counter-grid">
+                <CounterTile label="RTCP frames" value={n(rtcp.frames_received)} tone="ok" />
+                <CounterTile label="Packets parsed" value={n(rtcp.packets_parsed)} />
+                <CounterTile label="Sender Reports" value={n(rtcp.sender_reports)} />
+                <CounterTile label="Receiver Reports" value={n(rtcp.receiver_reports)} />
+                <CounterTile label="SDES" value={n(rtcp.source_description_packets)} />
+                <CounterTile label="BYE" value={n(rtcp.bye_packets)} />
+                <CounterTile label="Malformed" value={n(rtcp.malformed_packets)} tone={rtcp.malformed_packets > 0 ? "warning" : "ok"} />
+                <CounterTile label="Unknown" value={n(rtcp.unknown_packets)} tone={rtcp.unknown_packets > 0 ? "warning" : "ok"} />
+              </div>
+              <div className="codec-strip rtcp-strip">
+                <span>Last sender packet count <strong>{n(rtcp.last_sender_packet_count)}</strong></span>
+                <span>Last sender octet count <strong>{n(rtcp.last_sender_octet_count)}</strong></span>
+                <span>Last SR RTP timestamp <strong>{n(rtcp.last_rtp_timestamp_from_sr)}</strong></span>
+              </div>
             </div>
 
             <div className="split-grid">

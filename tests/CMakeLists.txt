@@ -10,6 +10,8 @@ add_executable(rtsi_tests
     test_report_writer.cpp
     test_rtp_parser.cpp
     test_rtp_stats.cpp
+    test_rtcp_parser.cpp
+    test_rtcp_stats.cpp
     test_stream_metrics_tests.cpp
     test_jitter_estimator.cpp
 )

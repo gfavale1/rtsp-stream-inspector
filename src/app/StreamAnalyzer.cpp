@@ -3,6 +3,8 @@
 #include "rtsi/h264/NalUnit.hpp"
 #include "rtsi/rtp/JitterEstimator.hpp"
 #include "rtsi/rtp/RtpParser.hpp"
+#include "rtsi/rtcp/RtcpParser.hpp"
+#include "rtsi/rtcp/RtcpStats.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -60,6 +62,7 @@ StreamAnalyzerResult StreamAnalyzer::analyze(
   metrics_collector.start_capture();
 
   JitterEstimator jitter_estimator(sanitize_clock_rate(config.rtp_clock_rate));
+    RtcpStats rtcp_stats;
 
   for (int i = 0; i < frame_count; ++i) {
     try {
@@ -83,8 +86,17 @@ StreamAnalyzerResult StreamAnalyzer::analyze(
             NalUnitParser::parse_rtp_payload(rtp_packet.payload);
         metrics_collector.update_h264_nal(nal_info);
       } else if (frame_type == InterleavedFrameType::Rtcp) {
-        ++result.rtcp_frames_received;
-      }
+                ++result.rtcp_frames_received;
+                rtcp_stats.observe_frame();
+                try {
+                    const auto packets = RtcpParser::parse_compound_packet(frame.payload);
+                    for (const auto& packet : packets) {
+                        rtcp_stats.observe_packet(packet);
+                    }
+                } catch (const std::exception&) {
+                    rtcp_stats.observe_malformed_packet();
+                }
+            }
 
       if (should_log_packet && on_packet_log) {
         StreamAnalyzerPacketLogEntry entry;
@@ -110,6 +122,7 @@ StreamAnalyzerResult StreamAnalyzer::analyze(
   result.report.interleaved.total_interleaved_payload_bytes =
       result.total_payload_bytes;
   result.report.rtp = result.metrics.rtp;
+    result.report.rtcp = rtcp_stats.snapshot();
   result.report.h264 = result.metrics.h264;
   result.report.stream = result.metrics.stream;
   result.report.rtp_quality =

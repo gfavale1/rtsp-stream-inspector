@@ -116,7 +116,22 @@ void MarkdownReportWriter::write_report(
        << optional_payload_type_to_string(report.rtp.payload_type) << '\n';
   file << "- SSRC: " << optional_to_string(report.rtp.ssrc) << "\n\n";
 
-  file << "## H.264 NAL Statistics\n\n";
+  
+    file << "## RTCP Statistics\n\n";
+    file << "- RTCP frames received: " << report.rtcp.frames_received << '\n';
+    file << "- RTCP packets parsed: " << report.rtcp.packets_parsed << '\n';
+    file << "- Malformed RTCP packets: " << report.rtcp.malformed_packets << '\n';
+    file << "- Sender Reports: " << report.rtcp.sender_reports << '\n';
+    file << "- Receiver Reports: " << report.rtcp.receiver_reports << '\n';
+    file << "- SDES packets: " << report.rtcp.source_description_packets << '\n';
+    file << "- BYE packets: " << report.rtcp.bye_packets << '\n';
+    file << "- APP packets: " << report.rtcp.app_packets << '\n';
+    file << "- Unknown RTCP packets: " << report.rtcp.unknown_packets << '\n';
+    file << "- Last SR RTP timestamp: " << optional_to_string(report.rtcp.last_rtp_timestamp_from_sr) << '\n';
+    file << "- Last sender packet count: " << optional_to_string(report.rtcp.last_sender_packet_count) << '\n';
+    file << "- Last sender octet count: " << optional_to_string(report.rtcp.last_sender_octet_count) << "\n\n";
+
+    file << "## H.264 NAL Statistics\n\n";
   file << "- NAL units seen: " << report.h264.nal_units_seen << '\n';
   file << "- SPS: " << report.h264.sps_count << '\n';
   file << "- PPS: " << report.h264.pps_count << '\n';

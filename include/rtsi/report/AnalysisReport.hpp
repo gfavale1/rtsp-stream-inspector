@@ -3,6 +3,7 @@
 #include "rtsi/h264/H264Analyzer.hpp"
 #include "rtsi/metrics/StreamMetrics.hpp"
 #include "rtsi/rtp/RtpStats.hpp"
+#include "rtsi/rtcp/RtcpStats.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -70,6 +71,7 @@ struct AnalysisReport {
   InterleavedCaptureReport interleaved;
 
   RtpStatsSnapshot rtp;
+    RtcpStatsSnapshot rtcp;
   H264AnalysisSnapshot h264;
   StreamMetricsSnapshot stream;
   RtpQualityReport rtp_quality;

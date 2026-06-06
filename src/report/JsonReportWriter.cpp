@@ -82,6 +82,30 @@ void JsonReportWriter::write_report(const AnalysisReport& report,
   assign_optional(rtp_json, "ssrc", report.rtp.ssrc);
   json_report["rtp"] = rtp_json;
 
+    nlohmann::json rtcp_json;
+    rtcp_json["frames_received"] = report.rtcp.frames_received;
+    rtcp_json["packets_parsed"] = report.rtcp.packets_parsed;
+    rtcp_json["malformed_packets"] = report.rtcp.malformed_packets;
+    rtcp_json["sender_reports"] = report.rtcp.sender_reports;
+    rtcp_json["receiver_reports"] = report.rtcp.receiver_reports;
+    rtcp_json["source_description_packets"] = report.rtcp.source_description_packets;
+    rtcp_json["bye_packets"] = report.rtcp.bye_packets;
+    rtcp_json["app_packets"] = report.rtcp.app_packets;
+    rtcp_json["unknown_packets"] = report.rtcp.unknown_packets;
+    assign_optional(rtcp_json, "last_sender_ssrc", report.rtcp.last_sender_ssrc);
+    assign_optional(rtcp_json, "last_rtp_timestamp_from_sr", report.rtcp.last_rtp_timestamp_from_sr);
+    assign_optional(rtcp_json, "last_sender_packet_count", report.rtcp.last_sender_packet_count);
+    assign_optional(rtcp_json, "last_sender_octet_count", report.rtcp.last_sender_octet_count);
+    assign_optional(rtcp_json, "last_report_block_jitter", report.rtcp.last_report_block_jitter);
+    if (report.rtcp.last_fraction_lost.has_value()) {
+        rtcp_json["last_fraction_lost"] = static_cast<unsigned int>(report.rtcp.last_fraction_lost.value());
+    } else {
+        rtcp_json["last_fraction_lost"] = nullptr;
+    }
+    assign_optional(rtcp_json, "last_cumulative_lost", report.rtcp.last_cumulative_lost);
+    json_report["rtcp"] = rtcp_json;
+
+
   json_report["h264"] = {
       {"nal_units_seen", report.h264.nal_units_seen},
       {"sps", report.h264.sps_count},

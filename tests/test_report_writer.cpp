@@ -45,6 +45,16 @@ rtsi::AnalysisReport sample_report() {
   report.interleaved.rtp_frames_received = 10;
   report.interleaved.rtcp_frames_received = 2;
   report.interleaved.total_interleaved_payload_bytes = 1234;
+    report.rtcp.frames_received = 2;
+    report.rtcp.packets_parsed = 3;
+    report.rtcp.malformed_packets = 0;
+    report.rtcp.sender_reports = 1;
+    report.rtcp.receiver_reports = 1;
+    report.rtcp.source_description_packets = 1;
+    report.rtcp.last_sender_ssrc = 0x01020304;
+    report.rtcp.last_rtp_timestamp_from_sr = 123456;
+    report.rtcp.last_sender_packet_count = 100;
+    report.rtcp.last_sender_octet_count = 200;
 
   report.rtp.packets_received = 10;
   report.rtp.packets_lost = 0;
@@ -106,6 +116,7 @@ TEST_CASE("JsonReportWriter writes parseable analysis reports", "[report][json]"
   REQUIRE(parsed.contains("video"));
   REQUIRE(parsed.contains("interleaved"));
   REQUIRE(parsed.contains("rtp"));
+    REQUIRE(parsed.contains("rtcp"));
   REQUIRE(parsed.contains("h264"));
   REQUIRE(parsed.contains("stream_metrics"));
   REQUIRE(parsed.contains("rtp_quality"));
@@ -122,6 +133,9 @@ TEST_CASE("JsonReportWriter writes parseable analysis reports", "[report][json]"
   REQUIRE(parsed["source"]["host"] == "192.0.2.10");
   REQUIRE(parsed["video"]["codec"] == "H264");
   REQUIRE(parsed["rtp"]["packets_received"] == 10);
+    REQUIRE(parsed["rtcp"]["frames_received"] == 2);
+    REQUIRE(parsed["rtcp"]["sender_reports"] == 1);
+    REQUIRE(parsed["rtcp"]["malformed_packets"] == 0);
   REQUIRE(parsed["rtp_quality"]["packets_observed"] == 10);
   REQUIRE(parsed["rtp_quality"]["jitter_ms"] == 1.0);
   REQUIRE(parsed["findings"].is_array());
@@ -152,6 +166,7 @@ TEST_CASE("MarkdownReportWriter writes human-readable analysis reports", "[repor
   REQUIRE(content.find("## Source") != std::string::npos);
   REQUIRE(content.find("## Video Track") != std::string::npos);
   REQUIRE(content.find("## RTP Statistics") != std::string::npos);
+    REQUIRE(content.find("## RTCP Statistics") != std::string::npos);
   REQUIRE(content.find("## H.264 NAL Statistics") != std::string::npos);
   REQUIRE(content.find("## Stream Metrics") != std::string::npos);
   REQUIRE(content.find("## RTP Quality Metrics") != std::string::npos);

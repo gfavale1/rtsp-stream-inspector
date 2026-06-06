@@ -141,6 +141,30 @@ void print_rtp_parser_stats(const rtsi::RtpStatsSnapshot &stats) {
   }
 }
 
+
+std::string optional_u32_to_string(const std::optional<std::uint32_t>& value) {
+    if (!value.has_value()) {
+        return "N/A";
+    }
+    return std::to_string(value.value());
+}
+
+void print_rtcp_stats(const rtsi::RtcpStatsSnapshot& stats) {
+    std::cout << "\n--- RTCP STATS ---\n";
+    std::cout << "RTCP frames received: " << stats.frames_received << '\n';
+    std::cout << "RTCP packets parsed: " << stats.packets_parsed << '\n';
+    std::cout << "Malformed RTCP packets: " << stats.malformed_packets << '\n';
+    std::cout << "Sender Reports: " << stats.sender_reports << '\n';
+    std::cout << "Receiver Reports: " << stats.receiver_reports << '\n';
+    std::cout << "SDES packets: " << stats.source_description_packets << '\n';
+    std::cout << "BYE packets: " << stats.bye_packets << '\n';
+    std::cout << "APP packets: " << stats.app_packets << '\n';
+    std::cout << "Unknown RTCP packets: " << stats.unknown_packets << '\n';
+    std::cout << "Last SR RTP timestamp: " << optional_u32_to_string(stats.last_rtp_timestamp_from_sr) << '\n';
+    std::cout << "Last sender packet count: " << optional_u32_to_string(stats.last_sender_packet_count) << '\n';
+    std::cout << "Last sender octet count: " << optional_u32_to_string(stats.last_sender_octet_count) << '\n';
+}
+
 void print_h264_nal_stats(const rtsi::H264AnalysisSnapshot &stats) {
   std::cout << "\n--- H264 NAL STATS ---\n";
   std::cout << "NAL units seen: " << stats.nal_units_seen << '\n';
@@ -519,6 +543,7 @@ int main(int argc, char **argv) {
 
         const auto stats = metrics.rtp;
         print_rtp_parser_stats(stats);
+                print_rtcp_stats(report.rtcp);
 
         const auto h264_stats = metrics.h264;
         print_h264_nal_stats(h264_stats);

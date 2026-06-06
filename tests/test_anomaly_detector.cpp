@@ -36,6 +36,10 @@ rtsi::AnalysisReport healthy_report() {
   report.rtp_quality.packets_observed = 3;
   report.rtp_quality.jitter_ms = 10.0;
   report.rtp_quality.max_interarrival_gap_ms = 40.0;
+    report.rtcp.frames_received = 2;
+    report.rtcp.packets_parsed = 2;
+    report.rtcp.sender_reports = 1;
+    report.rtcp.malformed_packets = 0;
   report.teardown_success = true;
   return report;
 }
@@ -67,7 +71,13 @@ TEST_CASE("AnomalyDetector reports OK findings for a healthy capture", "[metrics
   REQUIRE(find_by_code(findings, "no_large_interarrival_gap") != nullptr);
   REQUIRE(find_by_code(findings, "no_large_interarrival_gap")->severity == "ok");
 
-  REQUIRE(find_by_code(findings, "rtsp_teardown_success") != nullptr);
+  REQUIRE(find_by_code(findings, "rtcp_observed") != nullptr);
+    REQUIRE(find_by_code(findings, "rtcp_observed")->severity == "ok");
+    REQUIRE(find_by_code(findings, "rtcp_sender_report_observed") != nullptr);
+    REQUIRE(find_by_code(findings, "rtcp_sender_report_observed")->severity == "ok");
+    REQUIRE(find_by_code(findings, "no_malformed_rtcp_packets") != nullptr);
+    REQUIRE(find_by_code(findings, "no_malformed_rtcp_packets")->severity == "ok");
+    REQUIRE(find_by_code(findings, "rtsp_teardown_success") != nullptr);
   REQUIRE(find_by_code(findings, "rtsp_teardown_success")->severity == "ok");
 
   REQUIRE(find_by_code(findings, "unencrypted_rtsp") != nullptr);
@@ -114,4 +124,21 @@ TEST_CASE("AnomalyDetector reports warnings for problematic captures", "[metrics
 
   REQUIRE(find_by_code(findings, "rtsp_teardown_failed") != nullptr);
   REQUIRE(find_by_code(findings, "rtsp_teardown_failed")->severity == "warning");
+}
+
+
+TEST_CASE("AnomalyDetector reports RTCP warnings", "[metrics][anomaly][rtcp]") {
+    auto report = healthy_report();
+    report.rtcp.frames_received = 3;
+    report.rtcp.packets_parsed = 2;
+    report.rtcp.sender_reports = 0;
+    report.rtcp.malformed_packets = 1;
+
+    const rtsi::AnomalyDetector detector;
+    const auto findings = detector.analyze(report);
+
+    REQUIRE(find_by_code(findings, "no_rtcp_sender_report") != nullptr);
+    REQUIRE(find_by_code(findings, "no_rtcp_sender_report")->severity == "warning");
+    REQUIRE(find_by_code(findings, "malformed_rtcp_packets") != nullptr);
+    REQUIRE(find_by_code(findings, "malformed_rtcp_packets")->severity == "warning");
 }
