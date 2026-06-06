@@ -12,6 +12,11 @@ add_executable(rtsi_tests
     test_rtp_stats.cpp
     test_rtcp_parser.cpp
     test_rtcp_stats.cpp
+    sanitization_tests.cpp
+    malformed_sdp_rtsp_tests.cpp
+    malformed_h264_tests.cpp
+    malformed_rtcp_tests.cpp
+    malformed_rtp_tests.cpp
     test_stream_metrics_tests.cpp
     test_jitter_estimator.cpp
 )

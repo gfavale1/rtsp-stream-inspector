@@ -14,6 +14,7 @@ include(cmake/Dependencies.cmake)
 
 add_library(rtsi_core
     src/app/AnalyzerConfig.cpp
+    src/core/LogSanitizer.cpp
     src/report/JsonReportWriter.cpp
 
     src/net/TcpSocket.cpp

@@ -1,4 +1,5 @@
 #include "rtsi/app/AnalyzerConfig.hpp"
+#include "rtsi/core/LogSanitizer.hpp"
 #include "rtsi/app/StreamAnalyzer.hpp"
 #include "rtsi/metrics/AnomalyDetector.hpp"
 //#include "rtsi/net/UdpSocket.hpp"
@@ -340,7 +341,7 @@ int main(int argc, char **argv) {
       const auto options_exchange = client.options();
 
       std::cout << "\n--- RTSP OPTIONS REQUEST ---\n";
-      std::cout << sanitize_rtsp_message_for_log(
+      std::cout << rtsi::sanitize_rtsp_message_for_log(
           options_exchange.serialized_request);
 
       std::cout << "\n--- RTSP OPTIONS RESPONSE ---\n";
@@ -354,7 +355,7 @@ int main(int argc, char **argv) {
       const auto describe_result = client.describe_with_basic_auth_retry();
 
       std::cout << "\n--- RTSP DESCRIBE REQUEST ---\n";
-      std::cout << sanitize_rtsp_message_for_log(
+      std::cout << rtsi::sanitize_rtsp_message_for_log(
           describe_result.initial_exchange.serialized_request);
 
       std::cout << "\n--- RTSP DESCRIBE RESPONSE ---\n";
@@ -366,7 +367,7 @@ int main(int argc, char **argv) {
                   << "Retrying with Basic authentication...\n";
 
         std::cout << "\n--- RTSP DESCRIBE AUTHENTICATED REQUEST ---\n";
-        std::cout << sanitize_rtsp_message_for_log(
+        std::cout << rtsi::sanitize_rtsp_message_for_log(
             describe_result.authenticated_exchange->serialized_request);
 
         std::cout << "\n--- RTSP DESCRIBE AUTHENTICATED RESPONSE ---\n";
@@ -422,7 +423,7 @@ int main(int argc, char **argv) {
         const auto& setup_exchange = setup_result.exchange;
 
         std::cout << "\n--- RTSP SETUP REQUEST ---\n";
-        std::cout << sanitize_rtsp_message_for_log(
+        std::cout << rtsi::sanitize_rtsp_message_for_log(
             setup_exchange.serialized_request);
 
         std::cout << "\n--- RTSP SETUP RESPONSE ---\n";
@@ -453,7 +454,7 @@ int main(int argc, char **argv) {
         const auto play_exchange = client.play(session_id);
 
         std::cout << "\n--- RTSP PLAY REQUEST ---\n";
-        std::cout << sanitize_rtsp_message_for_log(
+        std::cout << rtsi::sanitize_rtsp_message_for_log(
             play_exchange.serialized_request);
 
         std::cout << "\n--- RTSP PLAY RESPONSE ---\n";
@@ -582,7 +583,7 @@ int main(int argc, char **argv) {
           const auto teardown_exchange = client.teardown(session_id);
 
           std::cout << "\n--- RTSP TEARDOWN REQUEST ---\n";
-          std::cout << sanitize_rtsp_message_for_log(
+          std::cout << rtsi::sanitize_rtsp_message_for_log(
               teardown_exchange.serialized_request);
 
           std::cout << "\n--- RTSP TEARDOWN RESPONSE ---\n";
