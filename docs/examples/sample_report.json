@@ -1,0 +1,103 @@
+{
+  "metadata": {
+    "tool": "rtsp-stream-inspector",
+    "generated_at_utc": "2026-01-01T00:00:00Z"
+  },
+  "configuration": {
+    "frames": 1000,
+    "timeout_ms": 5000,
+    "packet_log_limit": 20,
+    "markdown_enabled": true
+  },
+  "source": {
+    "host": "camera.local",
+    "ip": "192.0.2.10",
+    "port": 554,
+    "path": "/stream1",
+    "sanitized_url": "rtsp://camera.local:554/stream1",
+    "transport": "RTP/AVP/TCP;unicast;interleaved=0-1"
+  },
+  "video": {
+    "codec": "H264",
+    "payload_type": 96,
+    "rtp_clock_rate": 90000,
+    "control_uri": "trackID=1"
+  },
+  "interleaved": {
+    "rtp_frames_received": 1000,
+    "rtcp_frames_received": 12
+  },
+  "rtp": {
+    "packets_received": 1000,
+    "packets_lost": 0,
+    "loss_rate": 0.0,
+    "out_of_order_packets": 0,
+    "payload_type": 96,
+    "ssrc": 123456,
+    "first_sequence_number": 100,
+    "last_sequence_number": 1099,
+    "total_payload_bytes": 524288
+  },
+  "rtcp": {
+    "frames_received": 12,
+    "packets_parsed": 12,
+    "malformed_packets": 0,
+    "sender_reports": 4,
+    "receiver_reports": 0,
+    "source_description_packets": 4,
+    "bye_packets": 0,
+    "app_packets": 0,
+    "unknown_packets": 0,
+    "last_sender_ssrc": 123456,
+    "last_rtp_timestamp_from_sr": 987654,
+    "last_sender_packet_count": 1000,
+    "last_sender_octet_count": 524288,
+    "last_report_block_jitter": null,
+    "last_fraction_lost": null,
+    "last_cumulative_lost": null
+  },
+  "h264": {
+    "sps": 1,
+    "pps": 1,
+    "sei": 0,
+    "idr_slices": 8,
+    "non_idr_slices": 240,
+    "stap_a_packets": 0,
+    "fu_a_packets": 42,
+    "fu_a_starts": 21,
+    "fu_a_ends": 21,
+    "unknown_nal_units": 0
+  },
+  "stream_metrics": {
+    "capture_duration_seconds": 10.0,
+    "rtp_bitrate_mbps": 4.2,
+    "h264_payload_bitrate_mbps": 4.0,
+    "rtp_packets_per_second": 100.0,
+    "average_rtp_packet_size": 650.0,
+    "average_h264_payload_size": 620.0
+  },
+  "rtp_quality": {
+    "packets_observed": 1000,
+    "jitter_ms": 1.2,
+    "average_interarrival_gap_ms": 10.0,
+    "max_interarrival_gap_ms": 38.0
+  },
+  "findings": [
+    {
+      "severity": "ok",
+      "code": "no_packet_loss",
+      "message": "No RTP packet loss detected."
+    },
+    {
+      "severity": "ok",
+      "code": "rtcp_observed",
+      "message": "RTCP traffic was observed."
+    },
+    {
+      "severity": "warning",
+      "code": "unencrypted_rtsp",
+      "message": "RTSP traffic is not encrypted; credentials and media metadata may be exposed on the network."
+    }
+  ],
+  "teardown_success": true
+}
